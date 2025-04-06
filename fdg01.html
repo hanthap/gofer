@@ -85,7 +85,7 @@
                 fill-opacity: 0;
             }
 
-            rect.frame:xhover {
+            rect.frame:hover {
                 stroke:blue;
                 stroke-dasharray: 20,10,5,5,5,10;
                 stroke-opacity: 1;
@@ -122,7 +122,271 @@
     <body onkeydown="handleKeyDown();">
         <script>
             var x; // last clicked node
+            const shape = "circle";
+            var currentobject = null;
+            var width = window.innerWidth, height = window.innerHeight;
+            var simulation;
+            var simPassive;
+            var frozen = false;
+            var radius = 16;
+            var nodes = [];
+            var fencePosts = [];
+            var links = [];
+            var filteredLinks = [];
+            var mapNodes; // key,value lookup dict
+
+            var sourcePalette = d3.scaleOrdinal()
+                .domain( [ "X", "Y", "Z", ])
+                .range( [ "gold", "red", "blue", "green" ]);
+
+            var edgePalette = d3.scaleOrdinal()
+            .domain( [ "A", "B", "C", ])
+                .range( [ "blue", "green", "grey", "pink", "yellow" ]);
+
+            var svg = d3.select("body").append("svg")
+                .attr("width",width)
+                .attr("height",height)
+                // set origin to centre of svg
+                .attr("viewbox", [-500, -500, 1000, 1000] )
+                // interesting behaviour when window resizes - ALMOST good
+                .attr("style", "max-width:100%; height:auto; height:intrinsic;")
+
+            // groups are passive shapes in the background
+            const gGroup = svg.append("g")
+                .classed( "group", true )
+                ;
+
+            const gLinkZone = svg.append("g")
+                .classed( "linkzone", true )
+                ;
+
+            const gLink = svg.append("g")
+                .classed( "edge", true )
+                ;
+
+            const gNodeAR = svg.append("g"); // arrangements
             
+            
+            const gNode = svg.append("g"); // involved parties
+
+            const defs = svg.append("defs");
+
+            const pattern = defs
+                .append("pattern")
+                .attr("id", "green-pattern")
+                .attr("height",1)
+                .attr("width",0.05)
+
+        //-------------------------------------------------------------------------------
+
+        function HoverLink( d, bHovering ) {
+
+            gNode.selectAll("circle")
+                .filter( c => c == d.source || c == d.target )
+                .classed( 'xhover', bHovering );
+
+            gNode.selectAll("rect") // leaf
+                .filter( c => c == d.source || c == d.target )
+                .classed( 'xhover', bHovering );
+
+            gNode.selectAll("rect") // frame
+                .filter( c => c == d.source || c == d.target )
+                .classed( 'xhover', bHovering );
+                // TO DO : make this recursive
+
+        }
+
+        //-------------------------------------------------------------------------------
+
+        // true if n is [a descendant of] either of the vertices of edge e
+        function IsAtVertexOf(  e, n ) {
+            return HasAncestor( e.source, n ) || HasAncestor( e.target, n );
+        }
+
+        //-------------------------------------------------------------------------------
+
+        function handleClickLinkZone(e,d) {
+            // to do: should we toggle?
+            d.source.selected ^= 1;
+            d.target.selected ^= 1;
+            d.selected ^= 1;
+            ticked();
+        }
+
+        //-------------------------------------------------------------------------------
+
+        function handleMouseOverLinkZone(e,d) {
+            HoverLink( d, true );
+        }
+
+       //-------------------------------------------------------------------------------
+
+       function handleMouseOutLinkZone(e,d) {
+            HoverLink( d, false );
+        }
+    //-------------------------------------------------------------------------------
+
+    function handleMouseOverNode(e,d) {
+            // fill colour now done with CSS "hover"
+            currentobject = d;
+        }
+
+    //-------------------------------------------------------------------------------
+
+    function handleMouseOutNode(e,d) {
+            if ( e.button) return; //  ignore if still dragging 
+             // fill colour now done with CSS "hover"
+             currentobject = null;           
+        }
+    
+   //-------------------------------------------------------------------------------
+    // to do: return true iff node d is a member of { a, descendants of a } including
+    // need to make this recursive
+   function HasAncestor(a,d) {
+        return ( d.outLinks.filter( e => IsHierLink(e) && e.target == a ).length ); // simplistic and non-recursive
+   }
+
+   //-------------------------------------------------------------------------------
+
+   function HoverFrame( d, bHovering ) {
+
+    gNode.selectAll("circle")
+        .filter( c => HasAncestor(d, c) )
+        .classed( 'xhover', bHovering );
+    
+    gNode.selectAll("rect")
+    .filter( c => HasAncestor(d, c) )
+        .classed( 'xhover', bHovering );
+    
+    // same for group rectangles
+    gGroup.selectAll("rect")
+    .filter( c => HasAncestor(d, c) )
+        .classed( 'xhover', bHovering );
+
+   }
+
+   //-------------------------------------------------------------------------------
+
+   function handleMouseOverFrame(e, d) {
+        HoverFrame( d, true )
+   }
+
+   //-------------------------------------------------------------------------------
+
+   function handleMouseOoutFrame(e, d) {
+    if ( e.button) return; //  ignore if still dragging 
+        HoverFrame( d, false )
+   }
+
+   //-------------------------------------------------------------------------------
+
+   function handleClickNode( k, d ) {
+        x = d;
+        // console.log(d)
+        // console.log(k)
+        // use loc.x and loc.y here
+
+        // fill colour now done with 
+        currentobject = d;
+        // toggle 'selected' status of the clicked node
+        d.selected =  ! d.selected
+
+        // optionally, toggle the selected status of directly linked neighbours
+        if ( k.ctrlKey ) {
+            d.inLinks.forEach ( f => f.source.selected ^= 1 );
+            d.outLinks.forEach ( f => f.target.selected ^= 1 );
+        }
+
+        if ( k.shiftKey ) {
+            // stack/unstack the parent node (affecting all its subnodes)
+            d.inLinks.forEach ( f => f.source.selected ^= 1 );
+            d.outLinks.forEach ( f => f.target.selected ^= 1 );
+            p = ParentOf(d);
+            p.stacked ^= 1; // toggle
+            ChildrenOf(p).slice[1].forEach( c  => ( c.stacked = p.stacked ));
+            simulation.stop();
+            RunSim();
+
+        }
+        ticked();
+
+   }
+
+   //-------------------------------------------------------------------------------
+
+   function handleDblClickNode(e,d) {
+    // console.log(d)
+    // ParentOf(d).stacked = true
+    ticked()
+   }
+
+
+   //-------------------------------------------------------------------------------
+
+   function handleClickFrame(e,d) {
+    x = d;
+    d.selected ^= 1;
+    // to do: if ctrl key set (x,y) at persistent centre of gravity for all child nodes
+    // and increase their gravitational weight
+    // the frame should naturally shrink as a result
+    if ( e.ctrlKey )  {
+        loc = cursorPoint(e);
+        ChildrenOf(d).slice[1].forEach( c => {
+            [ c.cogX, c.cogY ] = [ loc.x, loc.y ]
+            c.weight = 1
+        } ) ;
+        simulation.stop();
+        RunSim()
+    }
+
+    if ( e.shiftKey )  {
+       // stack/unstack status of the frame node (affecting all its subnodes)
+            ChildrenOf(d).slice[1].forEach( c  => ( c.stacked = d.stacked ));
+            simulation.stop();
+            RunSim();
+        } 
+    else 
+        // to do: make this recursive
+    ChildrenOf(d).forEach( c => {
+            c.selected = d.selected;
+            ChildrenOf(c).forEach( gc => { gc.selected = d.selected } );
+         } ) ; // set all children on or off
+         ticked();
+
+    }
+
+ //-------------------------------------------------------------------------------
+
+// which nodes do we care about? include active & passive nodes
+function NodeScope(d) {
+    return true;
+    // return ( 'OCH', 'ME', 'FZ').includes( d.EDGE_CDE )
+}
+
+ //-------------------------------------------------------------------------------
+    // to do: handle multiple containership hierarchies => need a priority order in case of 
+function IsHierLink(d) {
+    return ( false 
+        || ( 'XYZ').includes( d.EDGE_TXT )
+        || ( 'HHOLD').includes( d.EDGE_TXT )
+        // to do: a Golden ID with exactly 2 visible nodes COULD be more simply represented as a connecting line
+        // instead of a frame rectangle
+    );
+
+}
+
+//-------------------------------------------------------------------------------
+
+function IsRectShape(d) {
+    return d.NODE_TYPE == 'AR';
+}
+
+//-------------------------------------------------------------------------------
+
+function IsRoundedShape(d) {
+    return d.NODE_TYPE == 'ID';
+}
+
         </script>
     </body>
 </html>
