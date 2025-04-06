@@ -387,6 +387,83 @@ function IsRoundedShape(d) {
     return d.NODE_TYPE == 'ID';
 }
 
-        </script>
+//-------------------------------------------------------------------------------
+/*
+
+TO DO: allow for multiple parallel hierarchies, each of which can be represented 
+each hierarchy could be defined by a group of link types eg 'GOLDEN', 
+frame shapes are colour-coded with round square 
+When multiple hierarchies are stackable we need to set priority rules to 
+BUG: HHOLD stacks & unstacks nicely but only when OCH hierarchy is disabled, something to do with
+
+
+*/
+function IsFrameShape(d) {
+    return false
+    || ( 'GENH' ).includes( d.CUST_TYPE_CDE ) // households
+    || ( 'GRP').includes( d.CUST_TYPE_CDE ) // ultimate parents
+    || ( 'OCR').includes( d.SRC_CDE ) // golden ids
+    || ( ( 'AF').includes( d.SRC_CDE ) && HasVisibleChild(d)  ) // does this work?
+    || HasVisibleChild(d) ;
+}
+
+//-------------------------------------------------------------------------------
+
+function HasVisibleChild(d) {
+    return ( VisibleChildrenOf(d).length > 0 );
+}
+
+//-------------------------------------------------------------------------------
+
+function IsVisibleNode(d) {
+    p = ParentOf(d);
+    return ( (!p.stacked) || d == LeadingChildOf(p) );
+}
+
+//-------------------------------------------------------------------------------
+// only active (unstacked) nodes will drive the simulation
+
+function IsActiveNode(d) {
+    return ( NodeScope(d) && IsVisibleNode(d) && !IsFrameShape(d) );
+}
+
+//-------------------------------------------------------------------------------
+
+function LinkScope(d) {
+// a link is in scope if both vertices are in scope
+    return ( NodeScope(d.source) && NodeScope(d.target) );
+}
+
+//-------------------------------------------------------------------------------
+
+function handleKeyDown(d) {
+    // console.log(event)
+    switch (event.key) {
+    case 'Escape' : 
+        // clear all highlights by removing the 'selected' class
+        nodes.forEach( d => d.selected = 0 );
+        break;
+    case 'End':
+    case 'Pause' :
+        // toggle frozen
+        if ( frozen ^= 1 )
+            simulation.stop();
+        else
+            simulation.restart();
+        break;
+    case 'Home' :
+        simulation.stop();
+        frozen = false;
+        RunSim(); // re-initialise
+        break;
+    }
+    ticked();
+}
+
+//-------------------------------------------------------------------------------
+
+
+
+</script>
     </body>
 </html>
