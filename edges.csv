@@ -1,0 +1,4 @@
+FROM_NODE_ID,TO_NODE_ID,EDGE_TXT
+ABC,MNO,This is edge text
+RST,MNO,Another edge
+RST,ABC,more text

@@ -136,35 +136,35 @@
             var mapNodes; // key,value lookup dict
 
             var sourcePalette = d3.scaleOrdinal()
-                .domain( [ "X", "Y", "Z", ])
-                .range( [ "gold", "red", "blue", "green" ]);
+                .domain( [ 'X', 'Y', 'Z' ])
+                .range( [ 'gold', 'red', 'blue' ]);
 
             var edgePalette = d3.scaleOrdinal()
-            .domain( [ "A", "B", "C", ])
-                .range( [ "blue", "green", "grey", "pink", "yellow" ]);
+            .domain( [ 'A', 'B', 'C', 'D' ])
+                .range( [ 'blue', 'green', 'grey', 'pink', 'yellow' ]);
 
-            var svg = d3.select("body").append("svg")
-                .attr("width",width)
-                .attr("height",height)
+            var svg = d3.select('body').append('svg')
+                .attr('width',width)
+                .attr('height',height)
                 // set origin to centre of svg
-                .attr("viewbox", [-500, -500, 1000, 1000] )
+                .attr('viewbox', [-500, -500, 1000, 1000] )
                 // interesting behaviour when window resizes - ALMOST good
-                .attr("style", "max-width:100%; height:auto; height:intrinsic;")
+                .attr('style', 'max-width:100%; height:auto; height:intrinsic;')
 
             // groups are passive shapes in the background
-            const gGroup = svg.append("g")
-                .classed( "group", true )
+            const gGroup = svg.append('g')
+                .classed( 'group', true )
                 ;
 
-            const gLinkZone = svg.append("g")
-                .classed( "linkzone", true )
+            const gLinkZone = svg.append('g')
+                .classed( 'linkzone', true )
                 ;
 
-            const gLink = svg.append("g")
-                .classed( "edge", true )
+            const gLink = svg.append('g')
+                .classed( 'edge', true )
                 ;
 
-            const gNodeAR = svg.append("g"); // arrangements
+            const gNodeAR = svg.append('g'); // arrangements
             
             
             const gNode = svg.append("g"); // involved parties
@@ -658,8 +658,8 @@ function AppendFrameShapes() {
             .attr('rx', d => IsRoundedShape(d) ? 2*radius : 0 ) // give
             .attr('ry', d => IsRoundedShape(d) ? 2*radius : 0 ) 
             .classed('frame',true)
-            .on('click',handleClickFrame)
-            .on('mouseover',handleMouseOverFrame) // for popup
+            .on('click', handleClickFrame)
+            .on('mouseover', handleMouseOverFrame) // for popup
             .on('mouseout', handleMouseOutFrame)
             .append('title')
                 .text(NodeInfo)
@@ -696,9 +696,9 @@ function AppendLines(rs) {
 async function LoadData() {
     // this launches both promises in parallel
     console.log();
-    const nodePromise = d3.tsv('vertices.tab', AppendNodeDatum)
+    const nodePromise = d3.csv('vertices.csv', AppendNodeDatum)
         .then( AppendShapes );
-    const linkPromise = d3.tsv('edges.tab', AppendLinkDatum)
+    const linkPromise = d3.csv('edges.csv', AppendLinkDatum)
         .then( AppendLines );
     await nodePromise;
     await linkPromise;
@@ -951,7 +951,7 @@ function initDrag(e,d) { // assumes SVG element has been created
 
 let drag = d3.drag()
     .on( 'start', handleDragStart)
-    .on( 'drop', handleDrop)
+    .on( 'end', handleDrop) // 
     .on( 'drag', handleDrag)
     ;
 
