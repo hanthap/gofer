@@ -1,4 +1,5 @@
-FROM_NODE_ID,TO_NODE_ID,EDGE_TXT
-ABC,MNO,This is edge text
-RST,MNO,Another edge
-RST,ABC,more text
+FROM_NODE_ID,TO_NODE_ID,EDGE_TXT,EDGE_CDE
+ABC,MNO,This is edge text,OCH
+RST,MNO,Another edge,ME
+RST,ABC,more text,FZ
+MSN,ABC,extra,ME

@@ -147,7 +147,7 @@
                 .attr('width',width)
                 .attr('height',height)
                 // set origin to centre of svg
-                .attr('viewbox', [-500, -500, 1000, 1000] )
+                .attr('viewBox', [-500, -500, 1000, 1000] ) // case-sensitive attribute name !!
                 // interesting behaviour when window resizes - ALMOST good
                 .attr('style', 'max-width:100%; height:auto; height:intrinsic;')
 
@@ -303,7 +303,10 @@
             d.outLinks.forEach ( f => f.target.selected ^= 1 );
             p = ParentOf(d);
             p.stacked ^= 1; // toggle
-            ChildrenOf(p).slice[1].forEach( c => ( c.stacked = p.stacked ));
+            // try catch because p could have no children => slice[1] returns undefined
+            try {
+                ChildrenOf(p).slice(1).forEach( c => ( c.stacked = p.stacked ));
+            } catch { }
             simulation.stop();
             RunSim();
             }
@@ -331,7 +334,7 @@
     // the frame should naturally shrink as a result
     if ( e.ctrlKey )  {
         loc = cursorPoint(e);
-        ChildrenOf(d).slice[1].forEach( c => {
+        ChildrenOf(d).slice(1).forEach( c => {
             [ c.cogX, c.cogY ] = [ loc.x, loc.y ]
             c.weight = 1
         } ) ;
@@ -341,7 +344,7 @@
 
     if ( e.shiftKey )  {
        // stack/unstack status of the frame node (affecting all its subnodes)
-            ChildrenOf(d).slice[1].forEach( c  => ( c.stacked = d.stacked ));
+            ChildrenOf(d).slice(1).forEach( c  => ( c.stacked = d.stacked ));
             simulation.stop();
             RunSim();
         } 
@@ -488,15 +491,15 @@ function getNodeFromID( LOCAL_ID ) {
 function AppendLinkDatum(d,i) {
 
 try { 
-    // console.log(d);
     // bind to its live vertex objects
     d.source = getNodeFromID( d.FROM_NODE_ID );
     d.target = getNodeFromID( d.TO_NODE_ID );
     d.distance = 10;
     d.strength = 0.1;
+   // console.log(d);
     return d; // only if we didn't throw an error eg 'no such node'
 } catch ( e ) {
-        // console.log(e)
+        console.log(e)
     }
 }
 
@@ -614,8 +617,8 @@ function RunSim() {
 function AppendShapes(rs) {
     nodes = rs; // the 'master' array used by d3 to render shapes
     // we also want to access each datum via its unique NODE_ID string
-    mapNodes = new Map ( nodes.map((x,i) => ( [x.NODE_ID, x ]) ) );
-    console.log( mapNodes ) ; // what's happened? why only 1 element?
+    mapNodes = new Map ( nodes.map((x,i) => ( [x.LOCAL_ID, x ]) ) );
+
     // create the SVG visual element
     gNode.selectAll('circle') // in case we've already got some
         .data(nodes.filter(IsRoundedShape)) // see comment above - how best to hide a circle when its group is visible and vice versa
@@ -671,7 +674,7 @@ function AppendFrameShapes() {
 
 function AppendLines(rs) {
     links = rs;
-    // console.log(links)
+   // console.log(links);
     filteredLinks = links;
     gLinkZone.selectAll('line')
         .data(filteredLinks.filter(LinkScope))
@@ -694,13 +697,14 @@ function AppendLines(rs) {
 //-------------------------------------------------------------------------------
 
 async function LoadData() {
-    // this launches both promises in parallel
-    console.log();
+    // this queues both promises (and their associated "then" statements) via parallel threads
+
     const nodePromise = d3.csv('vertices.csv', AppendNodeDatum)
         .then( AppendShapes );
+    await nodePromise;
+
     const linkPromise = d3.csv('edges.csv', AppendLinkDatum)
         .then( AppendLines );
-    await nodePromise;
     await linkPromise;
     // async means even LoadData() runs in a new thread. Control immediately returns
     // only within this function can we reliably delay AfterLoad() until 
@@ -927,6 +931,10 @@ function handleDrag(e,d) {
 //-------------------------------------------------------------------------------
 
 function handleDrop(e,d) {
+    // console.log(e);
+    // e.subject is [a reference to] the d3 datum object
+    // 
+
     if ( e.sourceEvent.shiftKey ) {
         d.cogX = d.x;
         d.cogY = d.y;
@@ -951,7 +959,7 @@ function initDrag(e,d) { // assumes SVG element has been created
 
 let drag = d3.drag()
     .on( 'start', handleDragStart)
-    .on( 'end', handleDrop) // 
+    .on( 'end', handleDrop)  
     .on( 'drag', handleDrag)
     ;
 
