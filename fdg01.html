@@ -372,8 +372,8 @@ function NodeScope(d) {
     // to do: handle multiple containership hierarchies => need a priority order in case of 
 function IsHierLink(d) {
     return ( false 
-  //      || ( 'ME').includes( d.EDGE_CDE )
- //       || ( 'OCH').includes( d.EDGE_CDE )
+      //  || ( 'ME').includes( d.EDGE_CDE )
+        || ( 'OCH').includes( d.EDGE_CDE )
         // to do: a Golden ID with exactly 2 visible nodes COULD be more simply represented as a connecting line
         // instead of a frame rectangle
     );
@@ -815,11 +815,11 @@ function LeftBoundary(d) {
 }
 
 function BottomBoundary(d) {
-    return (NodeCentre(d)[0] + NodeHalfHeight(d));
+    return (NodeCentre(d)[1] + NodeHalfHeight(d));
 }
 
 function TopBoundary(d) {
-    return (NodeCentre(d)[0] - NodeHalfHeight(d));
+    return (NodeCentre(d)[1] - NodeHalfHeight(d));
 }
 
 function IsStackedLeaf(d) {
@@ -884,7 +884,7 @@ nodes.filter( IsFrameShape ).forEach( d => {
         d.x = xMin; // [d.x, d.y] are the coords as read and updated by the simulation -- whereas we 
         d.y = yMin;
         d.width = xMax - xMin;
-        d.height = yMax = yMin;
+        d.height = yMax - yMin;
     } } );
     
 // TO DO : what happens when the IP owns (only) the container AR node? Does the line disappear?
@@ -916,17 +916,17 @@ nodes.filter( IsFrameShape ).forEach( d => {
         .attr('visibility', d => IsActiveNode(d) ? 'visible' : 'hidden' )
         .attr('fill',NodeColour)
         ;
-// to do: what about group frames with no visible child node and therefore 
+// to do: what about group frames with no visible child node 
 
     gGroup.selectAll('rect')
         .attr('x', d => d.x - radius )
         .attr('y', d => d.y - radius )
         // NOTE the following adjustments are only required if/when static data is modified, typically after a user click
-        .attr( 'height', d => d.height + 3*radius )
-        .attr( 'width', d => d.width + 3*radius )
+        .attr( 'height', d => d.height + 2*radius )
+        .attr( 'width', d => d.width + 2*radius )
         .classed('selected', d => d.selected)  
      //   .attr('visibility', d => HasVisibleChild(d) ? 'visible' : 'hidden' )
-        ;
+     ;
 };
 
 //-------------------------------------------------------------------------------
