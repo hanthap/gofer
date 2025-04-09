@@ -372,8 +372,8 @@ function NodeScope(d) {
     // to do: handle multiple containership hierarchies => need a priority order in case of 
 function IsHierLink(d) {
     return ( false 
-        || ( 'XYZ').includes( d.EDGE_TXT )
-        || ( 'HHOLD').includes( d.EDGE_TXT )
+  //      || ( 'ME').includes( d.EDGE_CDE )
+ //       || ( 'OCH').includes( d.EDGE_CDE )
         // to do: a Golden ID with exactly 2 visible nodes COULD be more simply represented as a connecting line
         // instead of a frame rectangle
     );
@@ -484,8 +484,8 @@ function AppendNodeDatum(d,i) {
 
 //-------------------------------------------------------------------------------
 
-function getNodeFromID( LOCAL_ID ) {
-    return ( nodes[ mapNodes.get(LOCAL_ID).index ] );
+function getNodeFromID( NODE_ID ) {
+    return ( nodes[ mapNodes.get(NODE_ID).index ] );
 }
 
 //-------------------------------------------------------------------------------
@@ -619,7 +619,7 @@ function RunSim() {
 function AppendShapes(rs) {
     nodes = rs; // the 'master' array used by d3 to render shapes
     // we also want to access each datum via its unique NODE_ID string
-    mapNodes = new Map ( nodes.map((x,i) => ( [x.LOCAL_ID, x ]) ) );
+    mapNodes = new Map ( nodes.map((x,i) => ( [x.NODE_ID, x ]) ) );
 
     // create the SVG visual element
     gNode.selectAll('circle') // in case we've already got some
@@ -755,14 +755,16 @@ function ParentOf(d) {
 //-------------------------------------------------------------------------------
 // final init steps that have to wait until nodes AND links are both populated 
 function AfterLoad() {
-    // collect all immediate links in/out of each node regardless of type
-    nodes.forEach( d => { d.inLinks = links.filter( x => ( x.TO_NODE_ID == d.NODE_ID ) ) } );
-    nodes.forEach( d => { d.outLinks = links.filter( x => ( x.FROM_NODE_ID == d.NODE_ID ) ) } );
+    // collect all immediate links into/out of each node regardless of type
+    nodes.forEach( d => { 
+        d.inLinks  = links.filter( x => ( x.TO_NODE_ID   == d.NODE_ID ) ); 
+        d.outLinks = links.filter( x => ( x.FROM_NODE_ID == d.NODE_ID ) );
+    } );
     // these will be used to manage interactive stacking & unstacking
     // when stacked, tail nodes must be excluded from the force model
     // i.e. the force simulation uses only the leading child node
     // ideally we'd still like all links to influence the animation. Problem: the stacked nodes 
-    // stacking a node means removing it from the force model AND letting all its clicks 'through to'
+    // stacking a node means removing it from the force model AND letting all its clicks 'through to the keeper'
     // for any node we must call split(1) to get the head of its list
     nodes.filter(IsFrameShape).forEach( gn => {
         ChildrenOf(gn).forEach( lnk => {
@@ -770,8 +772,11 @@ function AfterLoad() {
             lnk.strength = 100;
             })
         });
-    
+    console.log(links);
     AppendFrameShapes(); // don't forget the parentheses!
+    rst = getNodeFromID('RST');
+    console.log(rst);
+
     // 'null' simulation - lazy one-time pragma just to ensure inactive nodes are correctly registered with d3
     simPassive = d3.forceSimulation(nodes.filter(NodeScope)).stop();
 
@@ -1029,6 +1034,7 @@ class Edge {
 
 LoadData(); // async means control is returned immediately, before any data 
 // anything else we can do now that doesn't depend on nodes & links?
+
 
 </script>
 </body>
