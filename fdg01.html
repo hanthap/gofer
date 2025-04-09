@@ -135,12 +135,14 @@
             var filteredLinks = [];
             var mapNodes; // key,value lookup dict
 
+            // Lookup NodeColour using SRCE_CDE from vertices.csv
             var sourcePalette = d3.scaleOrdinal()
-                .domain( [ 'X', 'Y', 'Z' ])
+                .domain( [ 'XDX', 'OCR', 'GHI' ])
                 .range( [ 'gold', 'red', 'blue' ]);
 
+            // Lookup LinkColour using EDGE_CDE from edges.csv
             var edgePalette = d3.scaleOrdinal()
-            .domain( [ 'A', 'B', 'C', 'D' ])
+                .domain( [ 'OCH', 'ME', 'FZ', 'D' ])
                 .range( [ 'blue', 'green', 'grey', 'pink', 'yellow' ]);
 
             var svg = d3.select('body').append('svg')
@@ -255,12 +257,12 @@
         .classed( 'xhover', bHovering );
     
     gNode.selectAll("rect")
-    .filter( c => HasAncestor(d, c) )
+        .filter( c => HasAncestor(d, c) )
         .classed( 'xhover', bHovering );
     
     // same for group rectangles
     gGroup.selectAll("rect")
-    .filter( c => HasAncestor(d, c) )
+        .filter( c => HasAncestor(d, c) )
         .classed( 'xhover', bHovering );
 
    }
@@ -405,8 +407,8 @@ function IsFrameShape(d) {
     return false
     || ( 'GENH' ).includes( d.CUST_TYPE_CDE ) // households
     || ( 'GRP').includes( d.CUST_TYPE_CDE ) // ultimate parents
-    || ( 'OCR').includes( d.SRC_CDE ) // golden ids
-    || ( ( 'AF').includes( d.SRC_CDE ) && HasVisibleChild(d)  ) // does this work?
+    || ( 'OCH').includes( d.SRCE_CDE ) // golden ids
+    || ( ( 'AF').includes( d.SRCE_CDE ) && HasVisibleChild(d)  ) // does this work?
     || HasVisibleChild(d) ;
 }
 
@@ -534,7 +536,7 @@ function NodeCharge(d) {
 
 function NodeColour(d) {
     try {
-        return sourcePalette( d.SRC_CDE );
+        return sourcePalette( d.SRCE_CDE );
     } catch (e) { };
 }
 
@@ -550,7 +552,7 @@ function LinkInfo(d) {
 
 function LinkColour(d) {
     try {
-        return edgePalette( d.EDGE_TXT );
+        return edgePalette( d.EDGE_CDE );
     } catch (e) { };
 }
 
@@ -655,10 +657,11 @@ function AppendShapes(rs) {
     // this might have to wait until we've finished loading edges as well
 
 function AppendFrameShapes() {
+    console.log(nodes.filter(IsFrameShape));
     gGroup.selectAll('rect') // in case we've already got some
         .data(nodes.filter(IsFrameShape)) // for each datum in scope
             .join('rect') // append a new rectangular frame bound to this 
-            .attr('rx', d => IsRoundedShape(d) ? 2*radius : 0 ) // give
+            .attr('rx', d => IsRoundedShape(d) ? 2*radius : 0 ) // for rounded corners
             .attr('ry', d => IsRoundedShape(d) ? 2*radius : 0 ) 
             .classed('frame',true)
             .on('click', handleClickFrame)
@@ -822,7 +825,7 @@ function IsStackedLeaf(d) {
 //-------------------------------------------------------------------------------
 // a function we can invoke with gLinkZone.selectAll('line'). Called twice per link, per animation
 function SetLineAttributes(d)   {
-    // this = the HTML SVG element
+    // this = the HTML SVG element, d = the d3 datum
     if ( IsHierLink(d) && IsFrameShape(d.target) ) 
         this.setAttribute('visibility','hidden');
     else {
@@ -836,6 +839,14 @@ function SetLineAttributes(d)   {
         d3.select(this).classed('selected',d.selected); // classed() is a d3 extension; only needed once per user click
     }
 }
+
+//-------------------------------------------------------------------------------
+function SetCircleAttributes(d,i)   {
+      //  console.log(this);
+        return(this);
+    // this.setAttribute('cx', d => { d.x = bounded(d.x, 3*radius-width/2, width/2-3*radius); return d.x } );
+}
+
 
 //-------------------------------------------------------------------------------
 
@@ -875,9 +886,12 @@ nodes.filter( IsFrameShape ).forEach( d => {
 // less likely if a container IP jointly owns an AR.
 // always stay within internal boundary, but without avoiding edge
 
-    gLinkZone.selectAll('line').each( SetLineAttributes );
+    gLinkZone.selectAll('line').each( SetLineAttributes ); // "each()" is a d3 method. The passed function can receive 3 inputs: d (the datum), i (coumter) *AND* the HTML DOM (SVG) element itself, via 'this';
     gLink.selectAll('line').each( SetLineAttributes );
+
+
     gNode.selectAll('circle')
+        .each( SetCircleAttributes )
         .attr('cx', d => { d.x = bounded(d.x, 3*radius-width/2, width/2-3*radius); return d.x } )
         .attr('cy', d => { d.y = bounded(d.y, 3*radius-height/2, height/2-3*radius); return d.y } )
         // NOTE the following adjustments are only required if/when static data is modified, typically after a user click, not on
@@ -886,6 +900,7 @@ nodes.filter( IsFrameShape ).forEach( d => {
         .attr('visibility', d => IsActiveNode(d) ? 'visible' : 'hidden' )
         .attr('fill',NodeColour)
         ;
+
     gNode.selectAll('rect')
         .attr('x', d => { d.x = bounded(d.x, 3*radius-width/2, width/2-3*radius); return d.x } )
         .attr('y', d => { d.y = bounded(d.y, 3*radius-height/2, height/2-3*radius); return d.y } )
@@ -901,11 +916,11 @@ nodes.filter( IsFrameShape ).forEach( d => {
     gGroup.selectAll('rect')
         .attr('x', d => d.x - radius )
         .attr('y', d => d.y - radius )
-        // NOTE the following adjustments are only required if/when static data is modified, typically after a user click, not on
+        // NOTE the following adjustments are only required if/when static data is modified, typically after a user click
         .attr( 'height', d => d.height + 3*radius )
         .attr( 'width', d => d.width + 3*radius )
         .classed('selected', d => d.selected)  
-        .attr('visibility', d => HasVisibleChild(d) ? 'visible' : 'hidden' )
+     //   .attr('visibility', d => HasVisibleChild(d) ? 'visible' : 'hidden' )
         ;
 };
 
@@ -975,6 +990,42 @@ function cursorPoint(evt) {
     }
 
 //-------------------------------------------------------------------------------
+
+class Vertex {
+    constructor() {
+    }
+
+}
+//-------------------------------------------------------------------------------
+
+class CircleNode extends Vertex {
+    constructor() {
+        super();
+    }
+
+    show() {
+      //  return this.present() + ', it is a ' + this.model;
+    }
+}
+//-------------------------------------------------------------------------------
+
+class RectNode extends Vertex {
+    constructor() {
+    }
+}
+//-------------------------------------------------------------------------------
+
+class Edge {
+    constructor() {
+    }
+}
+//-------------------------------------------------------------------------------
+
+
+
+
+//-------------------------------------------------------------------------------
+
 
 LoadData(); // async means control is returned immediately, before any data 
 // anything else we can do now that doesn't depend on nodes & links?
