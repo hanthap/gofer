@@ -283,9 +283,11 @@
    //-------------------------------------------------------------------------------
 
    function handleClickNode( k, d ) {
-        x = d;
-        // console.log(d)
-        // console.log(k)
+        x = this;
+        console.log(d); // the d3 datum
+        console.log(k); // the click event
+        console.log(this); // the DOM element (circle)
+
         // use loc.x and loc.y here
 
         // fill colour now done with 
@@ -507,8 +509,14 @@ try {
 
 //-------------------------------------------------------------------------------
 
-function NodeRadius(d) { // used for collision detection, even if the node is a rect
+function NodeRadius(d) { 
     return radius;
+}
+
+//-------------------------------------------------------------------------------
+
+function CollideRadius(d) { // used for collision detection, even if the node is a rect
+    return d.r + 3; // +3 = extra to allow for stroke-width of circle element 
 }
 
 //-------------------------------------------------------------------------------
@@ -576,14 +584,72 @@ function LinkDistance(d) {
 
 //-------------------------------------------------------------------------------
 
+// Custom 'collide' force implementation. NOT FULLY WORKING YET
+// https://stackoverflow.com/questions/28927708/can-one-specify-a-custom-force-function-for-a-force-directed-layout
+
+function CustomCollide(alpha) {
+  var quadtree = d3.quadtree()
+    .x((d) => d.x)
+    .y((d) => d.y)
+    .addAll(nodes);
+  
+  nodes.forEach(function(d) {
+    var r = d.r, 
+      nx1 = d.x - r, // node xmin
+      nx2 = d.x + r, // node xmax
+      ny1 = d.y - r, // node ymin
+      ny2 = d.y + r; // node ymax
+    // define a callback to visit each node in the quadtree, 
+    //  comparing to all quadtree cells (but for speed we also want to decide whether to skip it (true) or not (false))
+    quadtree.visit(function(quad, x1, y1, x2, y2) {
+      if ( quad.data && (quad.data !== d ) ) { //  no need to compare a node to itself
+
+        var x = d.x - quad.data.x, // current x delta
+            y = d.y - quad.data.y, // current y delta
+            l = Math.sqrt(x * x + y * y), // current modulus distance by pythagoras
+            r = d.r + quad.data.r + 20; // smallest allowable distance between centres
+
+        if (l < r) { // if the two circles currently overlap...
+          l = (l - r) / l * alpha; // calculate (fractional) size of adjustment for this tick
+          d.x -= x *= l;  // decrease x by (fraction of) xdelta & store that as 'x'
+          d.y -= y *= l; // nudge y likewise and store as 'y'
+          quad.data.x += x;  // nudge the other node in the opposite direction, by the adjusted delta? 
+          quad.data.y += y; 
+        } // end if overlap
+      } // end if not the same node 
+      // visit callback function should return true or false.
+      // do the bounding boxes overlap? 
+      // returning false means the visit callback will try to recurse into this cell. Doesn't seem necessary and throws an error
+      // "expecting cx, cy, x, y, length, width but all are NaN"
+     //  return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+      return true;
+    } // end of visit callback function def
+); // end of visit()
+  } // end of forEach inline function
+); // end of forEach()
+//  console.log(quadtree);
+//  console.stop();
+} // end of CustomCollide()
+
+//-------------------------------------------------------------------------------
+
+
 function RunSim() {
     // to do: override default settings that influence movement for the first few seconds
     // just for the currently-active subset of nodes controlling the animation
     simulation = d3.forceSimulation(nodes.filter(IsActiveNode))
 
-        .force('collide', d3.forceCollide()
-            .radius(NodeRadius))
+        // nodes can touch but should not overlap
+        // d3.forceCollide() is a built-in algorithm that works for circles based on centre & radius, 
+        // but rects don't have a radius and their x,y coords are top left corner, not centre.
+        // a physically accurate algorithm for rectangles is very complex
+        // see https://observablehq.com/@lvngd/rectangular-collision-detection
+        // so instead we use many-body repulsion as a workaround
+        // or maybe a one-body translation (after-the-fact exclusion), without momentum etc
+        .force('collide', d3.forceCollide().radius(CollideRadius))
+    //    .force('collide', CustomCollide() )
 
+        // electrostatic forces attract/repel based on charge 
         .force('my-charge', d3.forceManyBody()
             .strength(NodeCharge))
 
@@ -591,12 +657,13 @@ function RunSim() {
         // d3.forceCenter() tries to keep the overall centre of mass in a fixed location
         .force('centre', d3.forceCenter().strength(1))
 
-        // gravity prevent fly-away, drift into bundles
+        // a centre of gravity helps to avoid explosive repulsion (& can also be used as an anchor for related groups clusters)
         .force('cogX', d3.forceX( d => d.cogX )
             .strength( d => d.weight ))
         .force('cogY', d3.forceX( d => d.cogY )
             .strength( d => (width/height) * d.weight ))
 
+        // each edge can act as a spring between 2 nodes (like a covalent bond)
         .force('my-link', d3.forceLink()
             .distance(LinkDistance)
             .strength(LinkStrength)
@@ -925,7 +992,7 @@ nodes.filter( IsFrameShape ).forEach( d => {
         .attr( 'height', d => d.height + 2*radius )
         .attr( 'width', d => d.width + 2*radius )
         .classed('selected', d => d.selected)  
-     //   .attr('visibility', d => HasVisibleChild(d) ? 'visible' : 'hidden' )
+        .attr('visibility', d => HasVisibleChild(d) ? 'visible' : 'hidden' )
      ;
 };
 
