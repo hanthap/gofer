@@ -1,0 +1,149 @@
+<html>
+<head>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+</head>
+<body>
+    <script>
+        let margin = {
+          top: 100,
+          right: 100,
+          bottom: 100,
+          left: 100
+        };
+        
+        let width = 960,
+          height = 800,
+          padding = 1, // separation between same-color rects
+          clusterPadding = 1, // separation between different-color rects
+          maxRadius = 18;
+        
+        let nNodes = 10, // total number of nodes
+          nClusters = 2, // number of distinct clusters
+          z = d3.scaleOrdinal(d3.schemeCategory10),
+          clusters = new Array(nClusters);
+        
+        let svg = d3.select('body')
+          .append('svg')
+          .attr('height', height)
+          .attr('width', width)
+          .append('g').attr('transform', 'translate(' + width / 2 + ',' + height / 2 + ')');
+        
+        let nodes = d3.range(nNodes).map(() => {
+          let i = Math.floor(Math.random() * nClusters),
+            radius = 2 * Math.sqrt((i + 1) / nClusters * -Math.log(Math.random())) * maxRadius,
+            d = {
+              cluster: i,
+              height: radius * Math.random(),
+              width: radius * Math.random()*1.4,
+              area: height * width
+            };
+            d.area = d.height * d.width;
+            // anchor each cluster to its largest member node
+          if (!clusters[i] || (d.area > clusters[i].area)) clusters[i] = d;
+          return d;
+        });
+        
+        let rects = svg.append('g')
+          .datum(nodes)
+          .selectAll('.rect')
+          .data(d => d)
+          .enter().append('rect')
+          .attr('height', (d) => d.height)
+          .attr('width', (d) => d.width)
+          .attr('fill', (d) => z(d.cluster))
+          .attr('stroke', 'black')
+          .attr('stroke-width', 1);
+        
+        let simulation = d3.forceSimulation(nodes)
+          .velocityDecay(0.4)
+          .alpha(1)
+          .force("x", d3.forceX().strength(.0005))
+          .force("y", d3.forceY().strength(.0005))
+          .force("collide", collide) // <<-------- CUSTOM FORCE
+          .force("cluster", clustering)//<<------- CUSTOM FORCE 
+          .on("tick", ticked);
+        
+        function ticked() {
+            // update the DOM element using datum
+          rects
+            .attr('x', (d) => d.x)
+            .attr('y', (d) => d.y);
+        }
+        
+        // Custom 'clustering' force implementation.
+        // 
+        function clustering(alpha) {
+          nodes.forEach(function(d) {
+            var cluster = clusters[d.cluster];
+            if (cluster === d) return;
+            var x = d.x - cluster.x,
+              y = d.y - cluster.y,
+              l = Math.sqrt(x * x + y * y),
+              r = d.width + cluster.width; // distance if touching the cluster node
+            if (l !== r) {  // not already touching
+              l = (l - r) / l * alpha; // (signed) nudge factor, goal is to touch the cluster node (but not overlap)
+              d.x -= x *= l; 
+              d.y -= y *= l;
+              cluster.x += x;
+              cluster.y += y;
+            }
+          });
+        }
+        // Custom 'collide' force implementation. doesn't treat the cluster node as special
+        function collide(alpha) {
+            // each shape will be assigned to a single bounding square, based ONLY on its top left corner 
+            // => we'll have to consider its bottom right corner later, when visiting the quadtree
+            var quadtree = d3.quadtree()
+            .x((d) => d.x) 
+            .y((d) => d.y)
+            .addAll(nodes);
+        
+          nodes.forEach(function(n) {
+            var r = n.width + maxRadius + Math.max(padding, clusterPadding),
+
+              nx1 = n.x, // left 
+              nx2 = n.x + n.width, // right
+              ny1 = n.y, // top
+              ny2 = n.y + n.height; // bottom
+
+              // check this node n against POSSIBLY RELEVANT comparison nodes m... (skipping only where it's 100% safe to do so)
+            quadtree.visit(function(
+                  objRef, // [wrapper for] one comparison node 'm'
+                  x1, y1, // top left of its "bounding square" in the quadtree
+                  x2, y2 // bottom right of the same bounding square. Not very useful as m's bottom right corner could go further than this point
+                ) { 
+                  if ( x1 > nx2 || y1 > ny2 ) // top left of the new bounding square DEFINITELY does not overlap the focus node n; 
+                  // i.e. the (top left corner of) EVERY contained rect is FULLY rightward and/or downward relative to (bottom right corner of) n
+                    // therefore, with no further ado, we can safely bypass this entire branch of the quadtree 
+                    return true;
+            // else the 2 rects MIGHT overlap, so let's find out...
+              m = objRef.data; // for readability
+              if (m // non-empty
+                && (m !== n) // no need to compare self
+                // can we save by processing one half of the matrix?
+                && ( m.x <= n.x ) // m is leftward of n 
+                && ( m.y <= n.y ) // m is upward of n
+                ) 
+                { 
+                    let 
+                        x = Math.max(0, m.x + m.width - n.x), // horizontal overlap
+                        y = Math.max(0, m.y + m.height - n.y), // vertical overlap
+                        overlap_area = x*y; 
+
+                if (overlap_area) { // the 2 rects actually do overlap
+                  nudge_factor = overlap_area * alpha / 20; // for smooth animation
+                  n.x -= x *= nudge_factor; // nudge n away from m
+                  n.y -= y *= nudge_factor;
+                  // nudge m in the opposite direction, away from n
+                  m.x += x;
+                  m.y += y;
+                }
+              }
+              return false; // do not skip this sector. It could include other rects that overlap node n
+            });
+          });
+        }
+        </script>
+</body>
+</html>
