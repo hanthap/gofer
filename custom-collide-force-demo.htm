@@ -14,12 +14,12 @@
         
         let width = 960,
           height = 500,
-          padding = 1.5, // separation between same-color circles
-          clusterPadding = 6, // separation between different-color circles
-          maxRadius = 12;
+          padding = 3, // separation between same-color circles
+          clusterPadding = 18, // separation between different-color circles
+          maxRadius = 18;
         
         let n = 200, // total number of nodes
-          m = 10, // number of distinct clusters
+          m = 8, // number of distinct clusters
           z = d3.scaleOrdinal(d3.schemeCategory10),
           clusters = new Array(m);
         
@@ -36,6 +36,7 @@
               cluster: i,
               r: radius
             };
+            // find the largest node in each cluster and make it special
           if (!clusters[i] || (radius > clusters[i].r)) clusters[i] = d;
           return d;
         });
@@ -51,7 +52,8 @@
           .attr('stroke-width', 1);
         
         let simulation = d3.forceSimulation(nodes)
-          .velocityDecay(0.2)
+          .velocityDecay(0.3)
+          .alpha(1)
           .force("x", d3.forceX().strength(.0005))
           .force("y", d3.forceY().strength(.0005))
           .force("collide", collide) // <<-------- CUSTOM FORCE
@@ -89,27 +91,36 @@
             .y((d) => d.y)
             .addAll(nodes);
         
-          nodes.forEach(function(d) {
-            var r = d.r + maxRadius + Math.max(padding, clusterPadding),
-              nx1 = d.x - r,
-              nx2 = d.x + r,
-              ny1 = d.y - r,
-              ny2 = d.y + r;
-            quadtree.visit(function(quad, x1, y1, x2, y2) {
-        
-              if (quad.data && (quad.data !== d)) {
-                var x = d.x - quad.data.x,
-                  y = d.y - quad.data.y,
-                  l = Math.sqrt(x * x + y * y),
-                  r = d.r + quad.data.r + (d.cluster === quad.data.cluster ? padding : clusterPadding);
-                if (l < r) {
-                  l = (l - r) / l * alpha;
-                  d.x -= x *= l;
-                  d.y -= y *= l;
-                  quad.data.x += x;
-                  quad.data.y += y;
+          nodes.forEach(function(n) {
+            var r = n.r + maxRadius + Math.max(padding, clusterPadding),
+              nx1 = n.x - r,
+              nx2 = n.x + r, 
+              ny1 = n.y - r,
+              ny2 = n.y + r;
+              // check this node n against POSSIBLY RELEVANT comparison nodes m... (skipping where it's safe to do so)
+            quadtree.visit(function(
+                  objRef, // wrapper for a comparison node m
+                  x1, y1, // top left of its bounding square
+                  x2, y2 // bottom right of its bounding square
+                ) { 
+              m = objRef.data; // for readability
+              if (m && (m !== n)) { // don't compare to self
+                var x = n.x - m.x, // current delta-x
+                  y = n.y - m.y, // current delta-y
+                  l = Math.sqrt(x * x + y * y), // current distance between centres, by Pythagoras
+                  // calculate r, the distance between centres when these 2 circles collide
+                  r = n.r + m.r + (n.cluster === m.cluster ? padding : clusterPadding);
+                if (l < r) { // the 2 circles currently overlap
+                  l = (l - r) / l * alpha; // scale factor for smooth animation
+                  n.x -= x *= l; // nudge n away from m
+                  n.y -= y *= l;
+                  // nudge m in the opposite direction, away from n
+                  m.x += x;
+                  m.y += y;
                 }
               }
+              // can we safely bypass all other nodes located inside the same bounding square?
+              // (surely we can decide this at the top, and return immediately?)
               return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
             });
           });
