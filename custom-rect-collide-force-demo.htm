@@ -16,10 +16,10 @@
           height = 800,
           padding = 1, // separation between same-color rects
           clusterPadding = 1, // separation between different-color rects
-          maxRadius = 18;
+          maxRadius = 60;
         
-        let nNodes = 10, // total number of nodes
-          nClusters = 2, // number of distinct clusters
+        let nNodes = 15, // total number of nodes
+          nClusters = 3, // number of distinct clusters
           z = d3.scaleOrdinal(d3.schemeCategory10),
           clusters = new Array(nClusters);
         
@@ -29,11 +29,14 @@
           .attr('width', width)
           .append('g').attr('transform', 'translate(' + width / 2 + ',' + height / 2 + ')');
         
+          // generate a random dataset of nodes
         let nodes = d3.range(nNodes).map(() => {
           let i = Math.floor(Math.random() * nClusters),
-            radius = 2 * Math.sqrt((i + 1) / nClusters * -Math.log(Math.random())) * maxRadius,
+            radius = Math.sqrt((i + 1) / nClusters * -Math.log(Math.random())) * maxRadius,
             d = {
               cluster: i,
+              x : Math.random(),
+              y : Math.random(),
               height: radius * Math.random(),
               width: radius * Math.random()*1.4,
               area: height * width
@@ -58,8 +61,8 @@
         let simulation = d3.forceSimulation(nodes)
           .velocityDecay(0.4)
           .alpha(1)
-          .force("x", d3.forceX().strength(.0005))
-          .force("y", d3.forceY().strength(.0005))
+          .force("x", d3.forceX().strength(.05))
+          .force("y", d3.forceY().strength(.05))
           .force("collide", collide) // <<-------- CUSTOM FORCE
           .force("cluster", clustering)//<<------- CUSTOM FORCE 
           .on("tick", ticked);
