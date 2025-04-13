@@ -142,7 +142,7 @@ function segInt(a1, a2, b1, b2) {
             .addAll(nodes);
         
           nodes.forEach(function(n) {
-            var r = n.width + maxRadius + Math.max(padding, clusterPadding),
+            var // r = n.width + maxRadius + Math.max(padding, clusterPadding),
 
               nx1 = n.x, // left 
               nx2 = n.x + n.width, // right
@@ -166,11 +166,9 @@ function segInt(a1, a2, b1, b2) {
                 // can we save workload by processing one half of the matrix?
                 && ( m.x <= n.x ) // m is leftward of n 
                 && ( m.y <= n.y ) // m is upward of n
-                // && false
                 ) 
                 { 
                   try {
-              //      console.log([m,n]);
                     var
                         x_int = segInt( m.x, m.x+m.width, nx1, nx2), // horizontal intersection
                         y_int = segInt( m.y, m.y+m.height, ny1, ny2), // vertical intersection
@@ -183,16 +181,16 @@ function segInt(a1, a2, b1, b2) {
 
                 if (overlap_area) { // the 2 rects actually do overlap
 
-                  nudge_factor = overlap_area * alpha / 100; // for smooth animation
+                  nudge_factor = overlap_area * alpha / 100000; // for smooth animation
                   // push apart in the direction where encroachment is SMALLER
-
-                  if ( x < y ) { // smaller encroachment is in the horizontal dimension
-                    n.x += x * nudge_factor; // nudge n away from m
-                    m.x -= x * nudge_factor; // nudge m in the opposite direction, away from n
+                  // to do: simulate inertia by nudging the 2 shapes in proportion to their relative "mass" 
+                  if ( x <= y ) { // smaller encroachment is in the horizontal dimension
+                    n.x += x * nudge_factor * m.area; // nudge n away from m
+                    m.x -= x * nudge_factor * n.area; // nudge m in the opposite direction, away from n
                     }
                   if ( y < x ) {
-                    n.y += y * nudge_factor; // nudge n away from m
-                    m.y -= y * nudge_factor; // nudge m in the opposite direction, away from n
+                    n.y += y * nudge_factor * m.area; // nudge n away from m
+                    m.y -= y * nudge_factor * n.area; // nudge m in the opposite direction, away from n
                     }
 
                   }
