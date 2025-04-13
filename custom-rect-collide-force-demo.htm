@@ -29,8 +29,8 @@ function segInt(a1, a2, b1, b2) {
           clusterPadding = 1, // separation between different-color rects
           maxRadius = 80;
         
-        let nNodes = 3, // total number of nodes
-          nClusters = 1, // number of distinct clusters
+        let nNodes = 16, // total number of nodes
+          nClusters = 4, // number of distinct clusters
           z = d3.scaleOrdinal(d3.schemeCategory10),
           clusters = new Array(nClusters);
         
@@ -79,6 +79,7 @@ function segInt(a1, a2, b1, b2) {
           .force("y", d3.forceY().strength(.03))
           .force("collide", collide) // <<-------- CUSTOM FORCE
           .force('centre', d3.forceCenter().strength(1))
+          .force("collide2", collide) // <<-------- CUSTOM FORCE
       //    .force("cluster", clustering) //<<------- CUSTOM FORCE 
           .on("tick", ticked);
         
@@ -181,9 +182,10 @@ function segInt(a1, a2, b1, b2) {
 
                 if (overlap_area) { // the 2 rects actually do overlap
 
-                  nudge_factor = overlap_area * alpha / 100000; // for smooth animation
-                  // push apart in the direction where encroachment is SMALLER
-                  // to do: simulate inertia by nudging the 2 shapes in proportion to their relative "mass" 
+ //                 nudge_factor = overlap_area * alpha / 100000; // this has weird side effects
+                    nudge_factor = alpha / 10000; // for smooth animation
+                   // push apart in the direction where encroachment is SMALLER
+                  // simulate inertia by nudging the 2 shapes in proportion to their relative "mass"  (area)
                   if ( x <= y ) { // smaller encroachment is in the horizontal dimension
                     n.x += x * nudge_factor * m.area; // nudge n away from m
                     m.x -= x * nudge_factor * n.area; // nudge m in the opposite direction, away from n
