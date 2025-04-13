@@ -6,12 +6,13 @@
 <body>
     <script>
 
-function segmentIntersection(a1, a2, b1, b2) {
+function segInt(a1, a2, b1, b2) {
     // Ensure a1 <= a2 and b1 <= b2
-    const [leftBound, rightBound] = [Math.max(a1, b1), Math.min(a2, b2)];
-
+    var leftBound = Math.max(a1, b1),
+      rightBound = Math.min(a2, b2);
+  // console.log([leftBound, rightBound]);
     // Check if there's an actual intersection
-    return leftBound <= rightBound ? [leftBound, rightBound, rightBound-leftBound] : [null,null,0];
+    return (leftBound <= rightBound) ? [leftBound, rightBound, (rightBound-leftBound) ] : [null,null,0];
 }
 //--------------------------------------------------------------------
 
@@ -76,9 +77,9 @@ function segmentIntersection(a1, a2, b1, b2) {
           .alpha(1)
           .force("x", d3.forceX().strength(.03))
           .force("y", d3.forceY().strength(.03))
+          .force("collide", collide) // <<-------- CUSTOM FORCE
           .force('centre', d3.forceCenter().strength(1))
       //    .force("cluster", clustering) //<<------- CUSTOM FORCE 
-          .force("collide", collide) // <<-------- CUSTOM FORCE
           .on("tick", ticked);
         
         function ticked() {
@@ -165,26 +166,36 @@ function segmentIntersection(a1, a2, b1, b2) {
                 // can we save workload by processing one half of the matrix?
                 && ( m.x <= n.x ) // m is leftward of n 
                 && ( m.y <= n.y ) // m is upward of n
+                // && false
                 ) 
                 { 
-                  
+                  try {
+              //      console.log([m,n]);
                     var
-                        x_int = segmentIntersection( m.x, m.x+m.width, nx1, nx2), // horizontal intersection
-                        y_int = segmentIntersection( m.y, m.y+m.height, ny1, ny2), // vertical intersection
-                        x = x_int[2], y = y_int[2],
+                        x_int = segInt( m.x, m.x+m.width, nx1, nx2), // horizontal intersection
+                        y_int = segInt( m.y, m.y+m.height, ny1, ny2), // vertical intersection
+                        [x,y] = [x_int[2], y_int[2]],
                         overlap_area = x * y ; 
+                  } catch (e) { 
+                      console.log(e);
+                      overlap_area = 0 
+                      }
 
                 if (overlap_area) { // the 2 rects actually do overlap
-                  nudge_factor = overlap_area * alpha / 1000; // for smooth animation
-                  if ( x ) {
-                  n.x -= x * nudge_factor; // nudge n away from m
-                  m.x += x * nudge_factor; // nudge m in the opposite direction, away from n
+
+                  nudge_factor = overlap_area * alpha / 100; // for smooth animation
+                  // push apart in the direction where encroachment is SMALLER
+
+                  if ( x < y ) { // smaller encroachment is in the horizontal dimension
+                    n.x += x * nudge_factor; // nudge n away from m
+                    m.x -= x * nudge_factor; // nudge m in the opposite direction, away from n
+                    }
+                  if ( y < x ) {
+                    n.y += y * nudge_factor; // nudge n away from m
+                    m.y -= y * nudge_factor; // nudge m in the opposite direction, away from n
+                    }
+
                   }
-                  if ( y ) {
-                    n.y -= y * nudge_factor; // nudge n away from m
-                    m.y += y * nudge_factor; // nudge m in the opposite direction, away from n
-                  }
-                }
               }
               return false; // do not skip this sector. It could include other rects that overlap node n
             });
