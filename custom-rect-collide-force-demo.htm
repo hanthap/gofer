@@ -79,7 +79,7 @@ function segInt(a1, a2, b1, b2) {
           .force("y", d3.forceY().strength(.03))
           .force("collider1", collider1) // <<-------- CUSTOM FORCE
           .force('centre', d3.forceCenter().strength(0.6))
-          .force("collider2", collider2) // <<-------- CUSTOM FORCE
+ //         .force("collider2", collider2) // <<-------- CUSTOM FORCE
       //    .force("cluster", clustering) //<<------- CUSTOM FORCE 
           .on("tick", ticked);
         
@@ -136,51 +136,25 @@ function segInt(a1, a2, b1, b2) {
 
         function collider1(alpha) { collide(alpha,true) };
         function collider2(alpha) { collide(alpha,false) };
-        
 
         // Custom 'collide' force implementation. doesn't treat the cluster node as special
         function collide(alpha, mode) {
-            // each shape will be assigned to a single bounding square, based ONLY on its top left corner 
-            // => we'll have to consider its bottom right corner later, when visiting the quadtree
-            // TO DO: forget quadtree, just do a full cartesian join filtered where m.area >= n.area and overlap > 0 (and only where the two node types 'must not overlap' )
+            // full cartesian join filtered where m.area >= n.area and overlap > 0 (and only where the two node types 'must not overlap' )
             // heavier shapes should displace lighter shapes & not the other way. Maybe with zero recoil?
-          /*
-            var quadtree = d3.quadtree()
-            .x((d) => d.x) 
-            .y((d) => d.y)
-            .addAll(nodes);
-        */
-          nodes.forEach(function(n) {
-            var // r = n.width + maxRadius + Math.max(padding, clusterPadding),
 
+            nodes.forEach(function(n) { // outer loop
+            var 
               nx1 = n.x, // left 
               nx2 = n.x + n.width, // right
               ny1 = n.y, // top
               ny2 = n.y + n.height; // bottom
-/* 
-              // check this node n against POSSIBLY RELEVANT comparison nodes m... (skipping only where it's 100% safe to do so)
-            quadtree.visit(function(
-                  objRef, // [wrapper for] one comparison node 'm'
-                  x1, y1, // top left of its "bounding square" in the quadtree
-                  x2, y2 // bottom right of the same bounding square. Not very useful as m's bottom right corner could go further than this point
-                ) { 
-                  if ( ( mode && ( x1 > nx2 || y1 > ny2 ) ) 
-                  || ( !mode && ( x1 < nx2 || y1 < ny2 ) ) )
-                  // top left of the new bounding square DEFINITELY does not overlap the rectangle of focus node n; 
-                  // i.e. the (top left corner of) EVERY contained rect is FULLY rightward and/or downward relative to (bottom right corner of) n
-                    // therefore, with no further ado, we can safely bypass this entire branch of the quadtree 
-                    return true;
-            // else the 2 rects MIGHT overlap, so let's find out...
 
-*/      nodes.forEach( m => { // inner loop
+            nodes.forEach( m => { // inner loop
 
-             // m = objRef.data; // just for readability
-              if ( m // non-empty
+              if ( m // non-empty 
                 && (m !== n) // no need to compare with self
-                // can we save workload by processing one half of the matrix?
-       //         && ( ( ( mode ) && ( m.x <= n.x ) && ( m.y <= n.y ) ) 
-       //           || ( ( !mode ) && ( n.x < m.x ) && ( n.y < m.y ) ) ) 
-            )
+                && ( m.area >= n.area ) 
+                  )
                 { 
                   try {
                     var
@@ -194,23 +168,23 @@ function segInt(a1, a2, b1, b2) {
                       }
 
                 if (overlap_area) { // the 2 rects actually do overlap
-
-                    nudge_factor = alpha / 1000; // for smooth animation
+                  total_area = m.area + n.area;
+                   nudge_factor = 10 * alpha ; // for smooth animation
+                   // nudge_factor = 1/ 1000;
                     if (!mode) nudge_factor *= -1;
                    // push apart in the direction where the encroachment is SMALLER
                   // simulate inertia by nudging the 2 shapes in proportion to their relative "mass"  (area)
                   if ( x <= y ) { // smaller encroachment is in the horizontal dimension
-                    n.x += x * nudge_factor * m.area; // nudge n away from m
-                    m.x -= x * nudge_factor * n.area; // recoil nudge m in the opposite direction, away from n
+                    n.x += x * nudge_factor * m.area / total_area; // nudge n away from m
+                    m.x -= x * nudge_factor * n.area / total_area; // recoil nudge m in the opposite direction, away from n
                     }
                   if ( y < x ) {
-                    n.y += y * nudge_factor * m.area; // nudge n away from m
-                    m.y -= y * nudge_factor * n.area; // recoil nudge m in the opposite direction, away from n
+                    n.y += y * nudge_factor * m.area / total_area; // nudge n away from m
+                    m.y -= y * nudge_factor * n.area / total_area; // recoil nudge m in the opposite direction, away from n
                     }
 
                   }
               }
-              return false; // do not skip this sector. It could include other rects that overlap node n
             });
           });
         }
