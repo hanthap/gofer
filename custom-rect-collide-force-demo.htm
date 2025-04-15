@@ -25,14 +25,13 @@ function segInt(a1, a2, b1, b2) {
         
         let width = 800,
           height = 600,
-          padding = 0.1, // separation between same-color rects
-          clusterPadding = 1, // separation between different-color rects
-          maxRadius = 80;
+          padding = 0; // separation 
         
         let nNodes = 36, // total number of nodes
           nClusters = 6, // number of distinct clusters
           z = d3.scaleOrdinal(d3.schemeCategory10),
-          clusters = new Array(nClusters);
+          maxRadius = 60
+          ;
         
         let svg = d3.select('body')
           .append('svg')
@@ -50,15 +49,13 @@ function segInt(a1, a2, b1, b2) {
               y : Math.random() * height,
               height: radius * ( 1+Math.random() ),
               width: radius * ( 1+Math.random() ),
-              area: height * width // could use this as "inertial mass" for attractive force?
+              area: height * width // "inertial mass" for attractive force
             };
             d.area = d.height * d.width;
-            // anchor each cluster to its largest member datum node
-          if (!clusters[i] || (d.area > clusters[i].area)) clusters[i] = d;
           return d;
         });
         console.clear();
-        console.log(nodes);
+      //  console.log(nodes);
         
         let rects = svg.append('g')
           .datum(nodes)
@@ -83,7 +80,7 @@ function segInt(a1, a2, b1, b2) {
           .force('centre', d3.forceCenter()) // overall centre 
           .force("collide", collide) // avoid overlapping 
           .on("tick", ticked)
-          .tick(60) // jump ahead & avoid some jitter
+          .tick(60) // fast forward to reduce visual jitter
           ;
         
         function ticked() {
@@ -123,7 +120,7 @@ function segInt(a1, a2, b1, b2) {
                       }
 
                 if (overlap_area) { // the 2 rects actually do overlap
-                    nudge_factor = 20 * alpha / ( m.area + n.area ) ; // for smooth animation
+                    nudge_factor = 20 * alpha / Math.max( m.area + n.area ) ; // for smooth animation
                    [x,y] = escape_vector( m, n ); // "shortest way out" 
                     n.x += padding + x * nudge_factor * m.area ; // nudge n away from m
                     m.x -= padding + x * nudge_factor * n.area; // x recoil 
@@ -134,6 +131,7 @@ function segInt(a1, a2, b1, b2) {
               }
             });
           });
+          ticked(); // help reduce some jitter when a shape bounces between 2 neighbours
         }
 
 // which direction is the shortest way out?
