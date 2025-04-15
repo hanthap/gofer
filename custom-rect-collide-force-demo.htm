@@ -55,10 +55,17 @@ function segInt(a1, a2, b1, b2) {
               type: i % 2 ? 'rect' : 'circle',
               area: 0 // "inertial mass" 
             };
-            d.r = Math.min(d.height,d.width)/2;
-            d.area = i % 2 ? d.height * d.width : Math.PI * d.r * d.r;
-            d.cx = d.x + d.width/2;
-            d.cy = d.y + d.height/2;
+            if ( d.type == 'circle' ) { 
+              d.r = Math.min(d.height,d.width)/2;
+              d.height = d.width = d.r * 2 ;
+              d.cx = d.x + d.r;
+              d.cy = d.y + d.r;
+              d.area = Math.PI * d.r * d.r;
+              }
+            else {
+              d.area = d.height * d.width;
+            }
+              ;
 
 
           return d;
@@ -67,11 +74,9 @@ function segInt(a1, a2, b1, b2) {
       //  console.log(nodes);
 
         let rects = svg.append('g')
-          .datum(nodes.filter(d=>d.type=='rect'))
-          // .datum(nodes)
           .selectAll('.rect')
-          .data(d => d)
-          .enter().append('rect')
+          .data(nodes.filter(d=>d.type=='rect'))
+          .join('rect')
           .attr('height', (d) => d.height)
           .attr('width', (d) => d.width)
           .attr('fill', (d) => z(d.cluster))
@@ -85,7 +90,7 @@ function segInt(a1, a2, b1, b2) {
           .join('circle')
           .attr('cx', d => d.x + d.width/2)
           .attr('cy', d => d.y + d.height/2)
-          .attr('r', d => d.width/2)
+          .attr('r', d => d.r)
           .attr('fill', d => z(d.cluster))
           .attr('opacity', 0.6)
           .attr('stroke', 'black')
@@ -93,11 +98,6 @@ function segInt(a1, a2, b1, b2) {
           ;
 
         let simulationRect = d3.forceSimulation(nodes.filter(d=>d.type=='rect'))
-          // .velocityDecay(0.4)
-          // .alpha(1)
-          // .alphaDecay(0.01)
-         // .alphaTarget(0.1)
-         // TO DO: how to get x,y forces to decay faster than collide, and without jitter
           .force("x", d3.forceX().strength( d => d.area / 100000 )) // heavier shapes go to centre
           .force("y", d3.forceY().strength( d => d.area / 100000 ))
           .force('centre', d3.forceCenter()) // overall centre 
@@ -105,28 +105,26 @@ function segInt(a1, a2, b1, b2) {
           .on("tick", ticked)
           .tick(60) // fast forward to reduce visual jitter
           ;
-          
-
+        
           let simulationCircle = d3.forceSimulation(nodes.filter(d=>d.type=='circle'))
-          .force("x", d3.forceX().strength( d => d.area / 100000 )) // heavier shapes go to centre
+          .force("x", d3.forceX().strength( d => d.area / 100000 ))
           .force("y", d3.forceY().strength( d => d.area / 100000 ))
-          .force('centre', d3.forceCenter()) // overall centre 
-          .force("collide", collide) // avoid overlapping 
+          .force('centre', d3.forceCenter()) 
+          .force("collide", collide)
           .on("tick", ticked)
-          .tick(60) // fast forward to reduce visual jitter
+          .tick(60) 
           ;
 
         function ticked() {
-            // set the DOM element's position using its new (top-left corner) coordinates, as last updated in datum
+            // set the DOM element's position using its new coordinates, as last updated in datum
           rects
             .attr('x', d => d.x)
             .attr('y', d => d.y);
-
           circles
           .attr('cx', d => d.x + d.width/2)
           .attr('cy', d => d.y + d.height/2)
-
         }
+
         // Custom 'collide' force implementation
         function collide(alpha) {
             // full cartesian join filtered where m.area >= n.area and overlap > 0 (and only where the two node types 'must not overlap' )
@@ -143,7 +141,7 @@ function segInt(a1, a2, b1, b2) {
 
               if ( m // non-empty 
                 && (m !== n) // no need to compare with self
-                && ( m.area >= n.area )  // avoid (most) double-processing
+                && ( m.area >= n.area )  // avoids (most) double-processing
                   )
                 { 
                   try {
@@ -172,7 +170,7 @@ function segInt(a1, a2, b1, b2) {
           ticked(); // help reduce some jitter when a shape bounces between 2 neighbours
         }
 
-// which direction is the shortest way out?
+// what's the 'shortest way out'?
 
 function escape_vector( m, n ) {
   
