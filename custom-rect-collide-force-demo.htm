@@ -4,7 +4,7 @@
 
 </head>
 <body>
-    <script>
+<script>
 
 function segInt(a1, a2, b1, b2) {
     // Ensure a1 <= a2 and b1 <= b2
@@ -23,8 +23,8 @@ function segInt(a1, a2, b1, b2) {
           left: 100
         };
         
-        let width = 800,
-          height = 600,
+        let svg_width = 800,
+            svg_height = 600,
           padding = 0; // separation 
         
         let nNodes = 36, // total number of nodes
@@ -35,9 +35,9 @@ function segInt(a1, a2, b1, b2) {
         
         let svg = d3.select('body')
           .append('svg')
-          .attr('height', height)
-          .attr('width', width)
-          .append('g').attr('transform', 'translate(' + width / 2 + ',' + height / 2 + ')');
+          .attr('height', svg_height)
+          .attr('width', svg_width)
+          .append('g').attr('transform', 'translate(' + svg_width / 2 + ',' + svg_height / 2 + ')');
         
           // generate a random dataset of nodes
         let nodes = d3.range(nNodes).map(() => {
@@ -45,20 +45,29 @@ function segInt(a1, a2, b1, b2) {
             radius = Math.random() * maxRadius,
             d = {
               cluster: i,
-              x : Math.random() * width,
-              y : Math.random() * height,
+              x : Math.random() * svg_width,
+              y : Math.random() * svg_height,
+              radius: radius,
               height: radius * ( 1+Math.random() ),
               width: radius * ( 1+Math.random() ),
-              area: height * width // "inertial mass" for attractive force
+              cx : 0,
+              cy : 0,
+              type: i % 2 ? 'rect' : 'circle',
+              area: 0 // "inertial mass" for attractive force
             };
-            d.area = d.height * d.width;
+            
+            d.area = i % 2 ? d.height * d.width : Math.PI * d.radius * d.radius;
+            d.cx = d.x + d.width/2;
+            d.cy = d.y + d.height/2;
+
           return d;
         });
         console.clear();
       //  console.log(nodes);
-        
+
         let rects = svg.append('g')
-          .datum(nodes)
+          .datum(nodes.filter(d=>d.type=='rect'))
+          // .datum(nodes)
           .selectAll('.rect')
           .data(d => d)
           .enter().append('rect')
@@ -68,8 +77,21 @@ function segInt(a1, a2, b1, b2) {
           .attr('opacity', 0.6)
           .attr('stroke', 'black')
           .attr('stroke-width', 1);
-        
-        let simulation = d3.forceSimulation(nodes)
+
+        let circles = svg.append('g')
+          .selectAll('.circle')
+          .data(nodes.filter(d=>d.type=='circle'))
+          .join('circle')
+          .attr('cx', d => d.x + d.width/2)
+          .attr('cy', d => d.y + d.height/2)
+          .attr('r', d => d.radius)
+          .attr('fill', d => z(d.cluster))
+          .attr('opacity', 0.6)
+          .attr('stroke', 'black')
+          .attr('stroke-width', 1)
+          ;
+
+        let simulationRect = d3.forceSimulation(nodes.filter(d=>d.type=='rect'))
           // .velocityDecay(0.4)
           // .alpha(1)
           // .alphaDecay(0.01)
@@ -80,14 +102,28 @@ function segInt(a1, a2, b1, b2) {
           .force('centre', d3.forceCenter()) // overall centre 
           .force("collide", collide) // avoid overlapping 
           .on("tick", ticked)
-          .tick(60) // fast forward to reduce visual jitter
+        //  .tick(60) // fast forward to reduce visual jitter
           ;
-        
+          
+
+          let simulationCircle = d3.forceSimulation(nodes.filter(d=>d.type=='circle'))
+          .force("x", d3.forceX().strength( d => d.area / 100000 )) // heavier shapes go to centre
+          .force("y", d3.forceY().strength( d => d.area / 100000 ))
+          .force('centre', d3.forceCenter()) // overall centre 
+          .force("collide", collide) // avoid overlapping 
+          .on("tick", ticked)
+          ;
+
         function ticked() {
             // set the DOM element's position using its new (top-left corner) coordinates, as last updated in datum
-          rects
-            .attr('x', (d) => d.x)
-            .attr('y', (d) => d.y);
+         rects
+            .attr('x', d => d.x)
+            .attr('y', d => d.y);
+
+            circles
+          .attr('cx', d => d.x + d.width/2)
+          .attr('cy', d => d.y + d.height/2)
+
         }
         // Custom 'collide' force implementation
         function collide(alpha) {
