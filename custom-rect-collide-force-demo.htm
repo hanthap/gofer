@@ -47,18 +47,19 @@ function segInt(a1, a2, b1, b2) {
               cluster: i,
               x : Math.random() * svg_width,
               y : Math.random() * svg_height,
-              radius: radius,
+              r: radius,
               height: radius * ( 1+Math.random() ),
               width: radius * ( 1+Math.random() ),
               cx : 0,
               cy : 0,
               type: i % 2 ? 'rect' : 'circle',
-              area: 0 // "inertial mass" for attractive force
+              area: 0 // "inertial mass" 
             };
-            
-            d.area = i % 2 ? d.height * d.width : Math.PI * d.radius * d.radius;
+            d.r = Math.min(d.height,d.width)/2;
+            d.area = i % 2 ? d.height * d.width : Math.PI * d.r * d.r;
             d.cx = d.x + d.width/2;
             d.cy = d.y + d.height/2;
+
 
           return d;
         });
@@ -84,7 +85,7 @@ function segInt(a1, a2, b1, b2) {
           .join('circle')
           .attr('cx', d => d.x + d.width/2)
           .attr('cy', d => d.y + d.height/2)
-          .attr('r', d => d.radius)
+          .attr('r', d => d.width/2)
           .attr('fill', d => z(d.cluster))
           .attr('opacity', 0.6)
           .attr('stroke', 'black')
@@ -102,7 +103,7 @@ function segInt(a1, a2, b1, b2) {
           .force('centre', d3.forceCenter()) // overall centre 
           .force("collide", collide) // avoid overlapping 
           .on("tick", ticked)
-        //  .tick(60) // fast forward to reduce visual jitter
+          .tick(60) // fast forward to reduce visual jitter
           ;
           
 
@@ -112,15 +113,16 @@ function segInt(a1, a2, b1, b2) {
           .force('centre', d3.forceCenter()) // overall centre 
           .force("collide", collide) // avoid overlapping 
           .on("tick", ticked)
+          .tick(60) // fast forward to reduce visual jitter
           ;
 
         function ticked() {
             // set the DOM element's position using its new (top-left corner) coordinates, as last updated in datum
-         rects
+          rects
             .attr('x', d => d.x)
             .attr('y', d => d.y);
 
-            circles
+          circles
           .attr('cx', d => d.x + d.width/2)
           .attr('cy', d => d.y + d.height/2)
 
