@@ -25,12 +25,12 @@ function segInt(a1, a2, b1, b2) {
         
         let width = 800,
           height = 600,
-          padding = 0, // separation between same-color rects
+          padding = 0.1, // separation between same-color rects
           clusterPadding = 1, // separation between different-color rects
           maxRadius = 80;
         
-        let nNodes = 16, // total number of nodes
-          nClusters = 4, // number of distinct clusters
+        let nNodes = 36, // total number of nodes
+          nClusters = 6, // number of distinct clusters
           z = d3.scaleOrdinal(d3.schemeCategory10),
           clusters = new Array(nClusters);
         
@@ -73,15 +73,18 @@ function segInt(a1, a2, b1, b2) {
           .attr('stroke-width', 1);
         
         let simulation = d3.forceSimulation(nodes)
-          .velocityDecay(0.4)
-          .alpha(1)
-          .force("x", d3.forceX().strength(.03))
-          .force("y", d3.forceY().strength(.03))
-          .force("collider1", collider1) // <<-------- CUSTOM FORCE
-          .force('centre', d3.forceCenter().strength(0.6))
- //         .force("collider2", collider2) // <<-------- CUSTOM FORCE
-      //    .force("cluster", clustering) //<<------- CUSTOM FORCE 
-          .on("tick", ticked);
+          // .velocityDecay(0.4)
+          // .alpha(1)
+          // .alphaDecay(0.01)
+         // .alphaTarget(0.1)
+         // TO DO: how to get x,y forces to decay faster than collide, and without jitter
+          .force("x", d3.forceX().strength( d => d.area / 100000 )) // heavier shapes go to centre
+          .force("y", d3.forceY().strength( d => d.area / 100000 ))
+          .force('centre', d3.forceCenter()) // overall centre 
+          .force("collide", collide) // avoid overlapping 
+          .on("tick", ticked)
+          .tick(60) // jump ahead & avoid some jitter
+          ;
         
         function ticked() {
             // set the DOM element's position using its new (top-left corner) coordinates, as last updated in datum
@@ -89,60 +92,12 @@ function segInt(a1, a2, b1, b2) {
             .attr('x', (d) => d.x)
             .attr('y', (d) => d.y);
         }
-        
-        // Custom 'clustering' force implementation.
-        // aim is to move each node towards the biggest rect in its cluster
-        function clustering(alpha) {
-          nodes.forEach(function(n) {
-            var c = clusters[n.cluster];
-            if (c === n) return;
-            // maybe we can just leavet it to the collision function to resolve ALL overlaps?
-            var // what's the smallest gap now (distance between the 2 closest non-overlapping sides)? 
-              xGapRight = Math.max( 0, c.x - ( n.x + n.width ) ),  // +ve means cluster is fully to the right of n, so n.x will increase (and c.x will decrease)
-              xGapLeft =  Math.max( 0, n.x - ( c.x + c.width ) ),  // +ve means cluster is fully to the left of n
-              yGapBelow = Math.max( 0, c.y - ( n.y + n.height ) ), // +ve means cluster is fully below n
-              yGapAbove = Math.max( 0, n.y - ( c.y + c.height ) ); // +ve means cluster is fully above n
-            ;
-          //   console.log([xGapRight,xGapLeft, yGapBelow,yGapAbove]);
-            // The smallest non-zero gap is all that matters. We want this measure to approach zero, at a speed proportional to decreasing alpha
-            xGap = [xGapRight,-xGapLeft].find( num => num != 0 );
-            yGap = [yGapBelow,-yGapAbove].find( num => num != 0 );
-            g = [xGap,yGap].filter( num => num !== null); // ignore nulls
-            gap = g.map(Math.abs); // ignore sign
-            minGap = Math.min(...gap); // what is the magnitude of the smaller gap?
-           // console.log([xGap, yGap, minGap]);
-
-            if (minGap > padding) {  // not already "touching"
-            
-              nudge_factor = minGap * alpha; //  goal is for n to touch the cluster node (but not overlap)
-              if ( nudge_factor > 0 ) {
-            //    console.log([xGap, yGap, minGap, nudge_factor]);
-
-                 if (xGap > 0)  { 
-//debugger;
-                      n.x += xGap * nudge_factor * c.area; 
-                     c.x -= xGap * nudge_factor * n.area;
-                   }
-
-                   if (yGap > 0)  { 
-                      n.y += yGap * nudge_factor; 
-                      c.y -= yGap * nudge_factor;
-                   }
-
-           }
-            }
-          });
-        }
-
-        function collider1(alpha) { collide(alpha,true) };
-        function collider2(alpha) { collide(alpha,false) };
-
-        // Custom 'collide' force implementation. doesn't treat the cluster node as special
-        function collide(alpha, mode) {
+        // Custom 'collide' force implementation
+        function collide(alpha) {
             // full cartesian join filtered where m.area >= n.area and overlap > 0 (and only where the two node types 'must not overlap' )
             // heavier shapes should displace lighter shapes & not the other way. Maybe with zero recoil?
-
-            nodes.forEach(function(n) { // outer loop
+            // Problem: this force seems to lose strength faster than the others. How to compensate, so shapes don't gradually start overlapping?
+            nodes.forEach( n => { // outer loop
             var 
               nx1 = n.x, // left 
               nx2 = n.x + n.width, // right
@@ -153,7 +108,7 @@ function segInt(a1, a2, b1, b2) {
 
               if ( m // non-empty 
                 && (m !== n) // no need to compare with self
-                && ( m.area >= n.area ) 
+                && ( m.area >= n.area )  // avoid (most) double-processing
                   )
                 { 
                   try {
@@ -168,26 +123,34 @@ function segInt(a1, a2, b1, b2) {
                       }
 
                 if (overlap_area) { // the 2 rects actually do overlap
-                  total_area = m.area + n.area;
-                   nudge_factor = 10 * alpha ; // for smooth animation
-                   // nudge_factor = 1/ 1000;
-                    if (!mode) nudge_factor *= -1;
-                   // push apart in the direction where the encroachment is SMALLER
-                  // simulate inertia by nudging the 2 shapes in proportion to their relative "mass"  (area)
-                  if ( x <= y ) { // smaller encroachment is in the horizontal dimension
-                    n.x += x * nudge_factor * m.area / total_area; // nudge n away from m
-                    m.x -= x * nudge_factor * n.area / total_area; // recoil nudge m in the opposite direction, away from n
-                    }
-                  if ( y < x ) {
-                    n.y += y * nudge_factor * m.area / total_area; // nudge n away from m
-                    m.y -= y * nudge_factor * n.area / total_area; // recoil nudge m in the opposite direction, away from n
-                    }
+                    nudge_factor = 20 * alpha / ( m.area + n.area ) ; // for smooth animation
+                   [x,y] = escape_vector( m, n ); // "shortest way out" 
+                    n.x += padding + x * nudge_factor * m.area ; // nudge n away from m
+                    m.x -= padding + x * nudge_factor * n.area; // x recoil 
+                    n.y += padding + y * nudge_factor * m.area; // nudge n away from m
+                    m.y -= padding + y * nudge_factor * n.area; // y recoil 
 
                   }
               }
             });
           });
         }
-        </script>
+
+// which direction is the shortest way out?
+
+function escape_vector( m, n ) {
+  
+  // Which list item has the smallest absolute value?
+  x = [n.x-(m.x+m.width), (n.x+n.width)-m.x ] ;
+  x = x.reduce((min, num) => Math.abs(num) < Math.abs(min) ? num : min );
+
+  y = [n.y-(m.y+m.height), (n.y+n.height)-m.y ] ;
+  y = y.reduce((min, num) => Math.abs(num) < Math.abs(min) ? num : min );
+
+  return Math.abs(x) < Math.abs(y) ? [-x,0] : [0,-y]
+
+}
+
+</script>
 </body>
 </html>
