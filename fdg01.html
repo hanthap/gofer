@@ -584,56 +584,6 @@ function LinkDistance(d) {
 
 //-------------------------------------------------------------------------------
 
-// Custom 'collide' force implementation. NOT FULLY WORKING YET
-// https://stackoverflow.com/questions/28927708/can-one-specify-a-custom-force-function-for-a-force-directed-layout
-
-function CustomCollide(alpha) {
-  var quadtree = d3.quadtree()
-    .x((d) => d.x)
-    .y((d) => d.y)
-    .addAll(nodes);
-  
-  nodes.forEach(function(d) {
-    var r = d.r, 
-      nx1 = d.x - r, // node xmin
-      nx2 = d.x + r, // node xmax
-      ny1 = d.y - r, // node ymin
-      ny2 = d.y + r; // node ymax
-    // define a callback to visit each node in the quadtree, 
-    //  comparing to all quadtree cells (but for speed we also want to decide whether to skip it (true) or not (false))
-    quadtree.visit(function(quad, x1, y1, x2, y2) {
-      if ( quad.data && (quad.data !== d ) ) { //  no need to compare a node to itself
-
-        var x = d.x - quad.data.x, // current x delta
-            y = d.y - quad.data.y, // current y delta
-            l = Math.sqrt(x * x + y * y), // current modulus distance by pythagoras
-            r = d.r + quad.data.r + 20; // smallest allowable distance between centres
-
-        if (l < r) { // if the two circles currently overlap...
-          l = (l - r) / l * alpha; // calculate (fractional) size of adjustment for this tick
-          d.x -= x *= l;  // decrease x by (fraction of) xdelta & store that as 'x'
-          d.y -= y *= l; // nudge y likewise and store as 'y'
-          quad.data.x += x;  // nudge the other node in the opposite direction, by the adjusted delta? 
-          quad.data.y += y; 
-        } // end if overlap
-      } // end if not the same node 
-      // visit callback function should return true or false.
-      // do the bounding boxes overlap? 
-      // returning false means the visit callback will try to recurse into this cell. Doesn't seem necessary and throws an error
-      // "expecting cx, cy, x, y, length, width but all are NaN"
-     //  return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
-      return true;
-    } // end of visit callback function def
-); // end of visit()
-  } // end of forEach inline function
-); // end of forEach()
-//  console.log(quadtree);
-//  console.stop();
-} // end of CustomCollide()
-
-//-------------------------------------------------------------------------------
-
-
 function RunSim() {
     // to do: override default settings that influence movement for the first few seconds
     // just for the currently-active subset of nodes controlling the animation
@@ -647,8 +597,7 @@ function RunSim() {
         // so instead we use many-body repulsion as a workaround
         // or maybe a one-body translation (after-the-fact exclusion), without momentum etc
         .force('collide', d3.forceCollide().radius(CollideRadius))
-    //    .force('collide', CustomCollide() )
-
+    
         // electrostatic forces attract/repel based on charge 
         .force('my-charge', d3.forceManyBody()
             .strength(NodeCharge))
@@ -958,7 +907,7 @@ nodes.filter( IsFrameShape ).forEach( d => {
 // less likely if a container IP jointly owns an AR.
 // always stay within internal boundary, but without avoiding edge
 
-    gLinkZone.selectAll('line').each( SetLineAttributes ); // "each()" is a d3 method. The passed function can receive 3 inputs: d (the datum), i (coumter) *AND* the HTML DOM (SVG) element itself, via 'this';
+    gLinkZone.selectAll('line').each( SetLineAttributes ); // "each()" is a d3 method. The passed function can receive 3 inputs: d (the datum), i (counter) *AND* the HTML DOM (SVG) element itself, via 'this';
     gLink.selectAll('line').each( SetLineAttributes );
 
 
