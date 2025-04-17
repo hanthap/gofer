@@ -1,0 +1,68 @@
+<html>
+<head>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+</head>
+<body>
+    <script>
+
+const width = 800, height = 600;
+
+const nodes = [
+    { id: 1, x: 50 + Math.random()*200, y: 50 + Math.random()*100, width : 50 + Math.random()*200, height : 50 + Math.random()*100 },
+    { id: 2, x: 50 + Math.random()*200, y: 50 + Math.random()*100, width : 50 + Math.random()*200, height : 50 + Math.random()*100 },
+    { id: 3, x: 50 + Math.random()*200, y: 50 + Math.random()*100, width : 50 + Math.random()*200, height : 50 + Math.random()*100 }
+];
+
+const links = [
+    { source: nodes[0], target: nodes[1] },
+    { source: nodes[1], target: nodes[2] }
+];
+
+const svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+const simulation = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(links).id(d => d.id).distance(200))
+    .force("charge", d3.forceManyBody().strength(-100))
+    .force("center", d3.forceCenter(width / 2, height / 2))
+    .on("tick", ticked);
+
+const nodeGroups = svg.selectAll("g")
+    .data(nodes)
+    .enter().append("g"); // creates nodeGroups, an array of (empty) 'g' elements
+
+
+// for each 'g' element in nodeGroups array... append a child 'rect' element
+nodeGroups.append("rect")
+    .attr("width", d=> d.width)
+    .attr("height", d=> d.height)
+    .attr("fill", "lightblue")
+    .attr("stroke", "black");
+
+
+// for each 'g' element in nodeGroups array... append a 2nd child = 'foreignObject' element and a grandchild 'xhtml:div' element
+
+nodeGroups.append("foreignObject") // add child element
+    .attr("width", d=> d.width)
+    .attr("height", d=> d.height)
+    .append("xhtml:div") // add a grandchild element
+    .style("font-size", "8px")
+    .style("text-align", "left")
+    .style("font-family", "Helvetica")
+    .style("padding", "5px")
+ 
+function ticked() {
+
+    nodeGroups.attr("transform", d => `translate(${d.x}, ${d.y})`); // this works on all children
+    
+    // select the grandchild html:div element
+     d3.selectAll("foreignobject")
+        .select("div") // this works, but "xhtml:div" doesn't
+        .html(d => `<b>Updated:</b><br>x: ${Math.round(d.x)}<br>y: ${Math.round(d.y)}`);
+}
+
+</script>
+</body>
+</html>

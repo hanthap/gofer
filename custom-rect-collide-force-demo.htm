@@ -30,8 +30,26 @@ function segInt(a1, a2, b1, b2) {
         let nNodes = 36, // total number of nodes
           nClusters = 6, // number of distinct clusters
           z = d3.scaleOrdinal(d3.schemeCategory10),
-          maxRadius = 60
+          maxRadius = 65
           ;
+
+          class MyNode {
+            constructor(r) { 
+                this._r  = r;
+            }
+             _r;
+           
+            get r() { return this._r; }
+            set r(_) { this._r = _; }
+
+            static fg(d) { return z(d.cluster); }
+
+            static add(d) {
+                console.log(d)
+            return d
+            }
+
+          }
         
         let svg = d3.select('body')
           .append('svg')
@@ -74,24 +92,44 @@ function segInt(a1, a2, b1, b2) {
       //  console.log(nodes);
 
         let rects = svg.append('g')
-          .selectAll('.rect')
+          .selectAll() // appending, therefore no need to filter
           .data(nodes.filter(d=>d.type=='rect'))
-          .join('rect')
+          .join('rect') 
           .attr('height', (d) => d.height)
           .attr('width', (d) => d.width)
-          .attr('fill', (d) => z(d.cluster))
+          .attr('fill', MyNode.fg )
           .attr('opacity', 0.6)
           .attr('stroke', 'black')
-          .attr('stroke-width', 1);
+          .attr('stroke-width', 1)
+          ;
+
+   let rectHtml = svg.append('g') 
+//        rects
+          .selectAll() // appending, therefore no need to filter
+          .data(nodes.filter(d=>d.type=='rect'))          
+          .join('foreignObject')
+          .attr('x', d => d.x )
+          .attr('y', d => d.y )
+          .attr('height', d => d.height)
+          .attr('width', d => d.width)
+          .append("xhtml:div")
+          .style("font-size", "8px")
+          .style("text-align", "center")
+          .style("padding", "10px")
+          .html("<b>Formatted</b> <i>HTML</i> <br> inside a box!")
+          ;
 
         let circles = svg.append('g')
           .selectAll('.circle')
           .data(nodes.filter(d=>d.type=='circle'))
           .join('circle')
+          
+         // .MyNode.add()
+
           .attr('cx', d => d.x + d.width/2)
           .attr('cy', d => d.y + d.height/2)
           .attr('r', d => d.r)
-          .attr('fill', d => z(d.cluster))
+          .attr('fill', MyNode.fg )
           .attr('opacity', 0.6)
           .attr('stroke', 'black')
           .attr('stroke-width', 1)
@@ -122,7 +160,11 @@ function segInt(a1, a2, b1, b2) {
             .attr('y', d => d.y);
           circles
           .attr('cx', d => d.x + d.width/2)
-          .attr('cy', d => d.y + d.height/2)
+          .attr('cy', d => d.y + d.height/2);
+
+          rectHtml.attr('transform', d => `translate(${d.x}, ${d.y})`);
+
+
         }
 
         // Custom 'collide' force implementation
