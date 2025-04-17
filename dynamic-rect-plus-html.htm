@@ -58,7 +58,7 @@ function ticked() {
     nodeGroups.attr("transform", d => `translate(${d.x}, ${d.y})`); // this works on all children
     
     // select the grandchild html:div element
-     d3.selectAll("foreignobject")
+    nodeGroups.selectAll("foreignObject")
         .select("div") // this works, but "xhtml:div" doesn't
         .html(d => `<b>Updated:</b><br>x: ${Math.round(d.x)}<br>y: ${Math.round(d.y)}`);
 }

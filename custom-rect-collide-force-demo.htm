@@ -91,33 +91,34 @@ function segInt(a1, a2, b1, b2) {
         console.clear();
       //  console.log(nodes);
 
-        let rects = svg.append('g')
-          .selectAll() // appending, therefore no need to filter
-          .data(nodes.filter(d=>d.type=='rect'))
-          .join('rect') 
-          .attr('height', (d) => d.height)
-          .attr('width', (d) => d.width)
-          .attr('fill', MyNode.fg )
-          .attr('opacity', 0.6)
-          .attr('stroke', 'black')
-          .attr('stroke-width', 1)
-          ;
 
-   let rectHtml = svg.append('g') 
-//        rects
-          .selectAll() // appending, therefore no need to filter
-          .data(nodes.filter(d=>d.type=='rect'))          
-          .join('foreignObject')
-          .attr('x', d => d.x )
-          .attr('y', d => d.y )
-          .attr('height', d => d.height)
-          .attr('width', d => d.width)
-          .append("xhtml:div")
-          .style("font-size", "8px")
-          .style("text-align", "center")
-          .style("padding", "10px")
-          .html("<b>Formatted</b> <i>HTML</i> <br> inside a box!")
-          ;
+  rects = svg.selectAll("g")
+    .data(nodes.filter(d=>d.type=='rect'))
+    .enter()
+    .append('g') // add a 'g' element to contain pair of rect + foreignObject
+    ;
+  
+  rects 
+      .append('rect') // first child
+        .attr('height', d => d.height)
+        .attr('width', d => d.width)
+        .attr('fill', MyNode.fg )
+        .attr('opacity', 0.6)
+        .attr('stroke', 'black')
+        .attr('stroke-width', 1)
+        ;
+  
+// for each 'g' element in rects array... append a 2nd child = 'foreignObject' element PLUS a grandchild 'xhtml:div' element
+
+rects.append("foreignObject") // add second child element
+    .attr("width", d=> d.width)
+    .attr("height", d=> d.height)
+    .append("xhtml:div") // add a grandchild element - we need the strictness of XHTML inside an SVG using foreignObject
+    .style("font-size", "8px")
+    .style("text-align", "left")
+    .style("font-family", "Helvetica")
+    .style("padding", "5px")
+      ;
 
         let circles = svg.append('g')
           .selectAll('.circle')
@@ -155,14 +156,17 @@ function segInt(a1, a2, b1, b2) {
 
         function ticked() {
             // set the DOM element's position using its new coordinates, as last updated in datum
-          rects
-            .attr('x', d => d.x)
-            .attr('y', d => d.y);
+
           circles
           .attr('cx', d => d.x + d.width/2)
           .attr('cy', d => d.y + d.height/2);
 
-          rectHtml.attr('transform', d => `translate(${d.x}, ${d.y})`);
+    // select the grandchild html:div element
+
+    rects.attr("transform", d => `translate(${d.x}, ${d.y})`); // this works on the 'g' element and all its children etc
+        rects.selectAll("foreignObject")
+          .select("div") // this works, but "xhtml:div" doesn't
+          .html(d => `x: ${Math.round(d.x)}<br>y: ${Math.round(d.y)}`);
 
 
         }
