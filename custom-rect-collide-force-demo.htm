@@ -55,7 +55,8 @@ function segInt(a1, a2, b1, b2) {
           .append('svg')
           .attr('height', svg_height)
           .attr('width', svg_width)
-          .append('g').attr('transform', 'translate(' + svg_width / 2 + ',' + svg_height / 2 + ')');
+          .append('g') // add a 'g' to contain all the graphical elements
+          .attr('transform', 'translate(' + svg_width / 2 + ',' + svg_height / 2 + ')');
         
           // generate a random dataset of nodes
         let nodes = d3.range(nNodes).map(() => {
@@ -92,14 +93,16 @@ function segInt(a1, a2, b1, b2) {
       //  console.log(nodes);
 
 
-  rects = svg.selectAll("g")
+  rects = svg.selectAll("g") // find the top level container group
     .data(nodes.filter(d=>d.type=='rect'))
     .enter()
-    .append('g') // add a 'g' element to contain pair of rect + foreignObject
+    .append('g') // add a 'g' element, one per node, to contain all of its display elements eg  rect + foreignObject
+    
     ;
   
   rects 
       .append('rect') // first child
+      // x and y coords are updated in tick(), but static relative to the node's group origin
         .attr('height', d => d.height)
         .attr('width', d => d.width)
         .attr('fill', MyNode.fg )
@@ -110,23 +113,22 @@ function segInt(a1, a2, b1, b2) {
   
 // for each 'g' element in rects array... append a 2nd child = 'foreignObject' element PLUS a grandchild 'xhtml:div' element
 
-rects.append("foreignObject") // add second child element
+rects
+  .append("foreignObject") // add a second child element per node-group. 
     .attr("width", d=> d.width)
     .attr("height", d=> d.height)
-    .append("xhtml:div") // add a grandchild element - we need the strictness of XHTML inside an SVG using foreignObject
+  .append("xhtml:div") // add a grandchild DIV element inside the foreignObject - we need the strictness of XHTML when inside an SVG 
     .style("font-size", "8px")
     .style("text-align", "left")
     .style("font-family", "Helvetica")
     .style("padding", "5px")
       ;
 
-        let circles = svg.append('g')
-          .selectAll('.circle')
-          .data(nodes.filter(d=>d.type=='circle'))
-          .join('circle')
-          
-         // .MyNode.add()
-
+  let circles = svg.append('g')
+        .selectAll('.circle')
+        .data(nodes.filter(d=>d.type=='circle'))
+        .join('circle')
+        
           .attr('cx', d => d.x + d.width/2)
           .attr('cy', d => d.y + d.height/2)
           .attr('r', d => d.r)
@@ -137,7 +139,7 @@ rects.append("foreignObject") // add second child element
           ;
 
         let simulationRect = d3.forceSimulation(nodes.filter(d=>d.type=='rect'))
-          .force("x", d3.forceX().strength( d => d.area / 100000 )) // heavier shapes go to centre
+          .force("x", d3.forceX().strength( d => d.area / 100000 )) // heavier shapes fall into to centre
           .force("y", d3.forceY().strength( d => d.area / 100000 ))
           .force('centre', d3.forceCenter()) // overall centre 
           .force("collide", collide) // avoid overlapping 
@@ -155,17 +157,17 @@ rects.append("foreignObject") // add second child element
           ;
 
         function ticked() {
-            // set the DOM element's position using its new coordinates, as last updated in datum
+            // set the DOM element's position using its new coordinates, as last updated in datum by the force simulation
 
-          circles
+          circles 
           .attr('cx', d => d.x + d.width/2)
           .attr('cy', d => d.y + d.height/2);
 
-    // select the grandchild html:div element
+    // for rect, select the grandchild html:div element and update its html code
 
     rects.attr("transform", d => `translate(${d.x}, ${d.y})`); // this works on the 'g' element and all its children etc
         rects.selectAll("foreignObject")
-          .select("div") // this works, but "xhtml:div" doesn't
+          .select("div") // this works, but "xhtml:div" doesn't - go figure
           .html(d => `x: ${Math.round(d.x)}<br>y: ${Math.round(d.y)}`);
 
 
