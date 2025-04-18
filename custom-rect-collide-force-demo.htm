@@ -157,12 +157,17 @@ circle_groups
   .attr("height", d=> d.height)
   .append("xhtml:div") // add a grandchild DIV element inside the foreignObject - we need the strictness of XHTML when inside an SVG 
     .style("font-size", "8px")
-    .style("text-align", "center")
+    .style("justify-content", "center")
+    .style("display", "flex")
+    .style("height", "100%")
+    .style("width", "100%")
+    .style("align-items", "center")
     .style("font-family", "Helvetica")
-    .style("padding", "5px")
+    //.style("padding", "5px")
 
 //--------------------------------------------------------------------
     // We can have multiple concurrent force simulations, with independent parameters
+    // this seems to reduce the amount of jitter
 
         let simulationRect = d3.forceSimulation(nodes.filter(d=>d.type=='rect'))
           .force("x", d3.forceX().strength( d => d.area / 100000 )) // heavier shapes fall into to centre
@@ -179,23 +184,29 @@ circle_groups
           .force('centre', d3.forceCenter()) 
           .force("collide", collide)
           .on("tick", ticked)
-          .tick(60) 
+         .tick(60) 
           ;
+        // adding this extra collide sim helps reduce overlap and jitter even more
+          let simulationCollide = d3.forceSimulation(nodes)
+          .force("collide", collide)
+         // .alphaDecay(0.2)
+          .on("tick", ticked)
+         .tick(60) 
 //--------------------------------------------------------------------
 function ticked() {
-// set the DOM element's position using its new coordinates, as last updated in datum by the force simulation
+// set the DOM element's position using its new coordinates, as last updated in datum by the force simulations
 
-    // select the grandchild html:div element and update its html code
+    // select the grandchild element <xhtml:div> and update its html code
 
-    rect_groups.attr("transform", d => `translate(${d.x}, ${d.y})`); // this works on the 'g' element and all its children etc
+    rect_groups.attr("transform", d => `translate(${d.x}, ${d.y})`); // this moves the 'g' element and all its children etc
     rect_groups.selectAll("foreignObject")
       .select("div") // this works, but "xhtml:div" doesn't - go figure
       .html(d => `x: ${Math.round(d.x)}<br>y: ${Math.round(d.y)}`);
 
     circle_groups.attr("transform", d => `translate(${d.x+d.r}, ${d.y+d.r})`); // offset by radius, otherwise shapes don't collide properly
     circle_groups.selectAll("foreignObject")
-      .select("div") // this works, but "xhtml:div" doesn't - go figure
-      .html(d => `x: ${Math.round(d.x)}<br>y: ${Math.round(d.y)}`);
+      .select("div") 
+      .html(d => `cx: ${Math.round(d.x+d.r)}<br>cy: ${Math.round(d.y+d.r)}`);
 
 }
 //--------------------------------------------------------------------
