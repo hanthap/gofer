@@ -151,11 +151,13 @@ circle_groups
  
 circle_groups
   .append("foreignObject") // add a second child element per node-group. 
-    .attr("width", d=> d.width)
-    .attr("height", d=> d.height)
+  .attr("x", d=>-d.r)
+  .attr("y", d=>-d.r)
+  .attr("width", d=> d.width)
+  .attr("height", d=> d.height)
   .append("xhtml:div") // add a grandchild DIV element inside the foreignObject - we need the strictness of XHTML when inside an SVG 
     .style("font-size", "8px")
-    .style("text-align", "left")
+    .style("text-align", "center")
     .style("font-family", "Helvetica")
     .style("padding", "5px")
 
