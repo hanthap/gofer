@@ -6,6 +6,8 @@
 <body>
 <script>
 
+//--------------------------------------------------------------------
+
 function segInt(a1, a2, b1, b2) {
     // Ensure a1 <= a2 and b1 <= b2
     var leftBound = Math.max(a1, b1),
@@ -16,46 +18,49 @@ function segInt(a1, a2, b1, b2) {
 }
 //--------------------------------------------------------------------
 
-        let margin = {
-          top: 100,
-          right: 100,
-          bottom: 100,
-          left: 100
-        };
-        
-        let svg_width = 800,
-            svg_height = 600,
-          padding = 0; // separation 
-        
-        let nNodes = 36, // total number of nodes
-          nClusters = 6, // number of distinct clusters
-          z = d3.scaleOrdinal(d3.schemeCategory10),
-          maxRadius = 65
-          ;
+let margin = {
+  top: 100,
+  right: 100,
+  bottom: 100,
+  left: 100
+};
 
-          class MyNode {
-            constructor(r) { 
-                this._r  = r;
-            }
-             _r;
-           
-            get r() { return this._r; }
-            set r(_) { this._r = _; }
+let svg_width = 800,
+    svg_height = 600,
+  padding = 0; // separation 
 
-            static fg(d) { return z(d.cluster); }
+let nNodes = 36, // total number of nodes
+  nClusters = 6, // number of distinct colours
+  z = d3.scaleOrdinal(d3.schemeCategory10),
+  maxRadius = 65
+  ;
+//--------------------------------------------------------------------
 
-            static add(d) {
-                console.log(d)
-            return d
-            }
+  class MyNode {
+    constructor(r) { 
+        this._r  = r;
+    }
+      _r;
+    
+    get r() { return this._r; }
+    set r(_) { this._r = _; }
 
-          }
-        
+    static fg(d) { return z(d.cluster); }
+
+    static add(d) {
+        console.log(d)
+    return d
+    }
+
+  }
+
+  //--------------------------------------------------------------------
+
         let svg = d3.select('body')
           .append('svg')
           .attr('height', svg_height)
           .attr('width', svg_width)
-          .append('g') // add a 'g' to contain all the graphical elements
+          .append('g') // add a mother of all groups to contain all the graphical elements
           .attr('transform', 'translate(' + svg_width / 2 + ',' + svg_height / 2 + ')');
         
           // generate a random dataset of nodes
@@ -92,17 +97,26 @@ function segInt(a1, a2, b1, b2) {
         console.clear();
       //  console.log(nodes);
 
+//--------------------------------------------------------------------
+top_group = svg.selectAll("g"); // mother of all groups
 
-  rects = svg.selectAll("g") // find the top level container group
+rect_groups = top_group
     .data(nodes.filter(d=>d.type=='rect'))
     .enter()
     .append('g') // add a 'g' element, one per node, to contain all of its display elements eg  rect + foreignObject
-    
     ;
-  
-  rects 
+
+circle_groups = top_group
+    .data(nodes.filter(d=>d.type=='circle'))
+    .enter()
+    .append('g') // add a 'g' element, one per node, to contain all of its display elements eg  circle + foreignObject
+    ;
+
+//--------------------------------------------------------------------
+// add the shape, as a child of each 'g' element
+
+rect_groups 
       .append('rect') // first child
-      // x and y coords are updated in tick(), but static relative to the node's group origin
         .attr('height', d => d.height)
         .attr('width', d => d.width)
         .attr('fill', MyNode.fg )
@@ -111,9 +125,9 @@ function segInt(a1, a2, b1, b2) {
         .attr('stroke-width', 1)
         ;
   
-// for each 'g' element in rects array... append a 2nd child = 'foreignObject' element PLUS a grandchild 'xhtml:div' element
+// for each 'g' element in rect_groups array... append a 2nd child = 'foreignObject' element PLUS a grandchild 'xhtml:div' element
 
-rects
+rect_groups
   .append("foreignObject") // add a second child element per node-group. 
     .attr("width", d=> d.width)
     .attr("height", d=> d.height)
@@ -123,20 +137,30 @@ rects
     .style("font-family", "Helvetica")
     .style("padding", "5px")
       ;
+//--------------------------------------------------------------------
+// now do the same for circle nodes
 
-  let circles = svg.append('g')
-        .selectAll('.circle')
-        .data(nodes.filter(d=>d.type=='circle'))
-        .join('circle')
-        
-          .attr('cx', d => d.x + d.width/2)
-          .attr('cy', d => d.y + d.height/2)
-          .attr('r', d => d.r)
-          .attr('fill', MyNode.fg )
-          .attr('opacity', 0.6)
-          .attr('stroke', 'black')
-          .attr('stroke-width', 1)
-          ;
+circle_groups
+    .append('circle')
+      .attr('r', d => d.r)
+      .attr('fill', MyNode.fg )
+      .attr('opacity', 0.6)
+      .attr('stroke', 'black')
+      .attr('stroke-width', 1)
+      ;
+ 
+circle_groups
+  .append("foreignObject") // add a second child element per node-group. 
+    .attr("width", d=> d.width)
+    .attr("height", d=> d.height)
+  .append("xhtml:div") // add a grandchild DIV element inside the foreignObject - we need the strictness of XHTML when inside an SVG 
+    .style("font-size", "8px")
+    .style("text-align", "left")
+    .style("font-family", "Helvetica")
+    .style("padding", "5px")
+
+//--------------------------------------------------------------------
+    // We can have multiple concurrent force simulations, with independent parameters
 
         let simulationRect = d3.forceSimulation(nodes.filter(d=>d.type=='rect'))
           .force("x", d3.forceX().strength( d => d.area / 100000 )) // heavier shapes fall into to centre
@@ -155,26 +179,26 @@ rects
           .on("tick", ticked)
           .tick(60) 
           ;
+//--------------------------------------------------------------------
+function ticked() {
+// set the DOM element's position using its new coordinates, as last updated in datum by the force simulation
 
-        function ticked() {
-            // set the DOM element's position using its new coordinates, as last updated in datum by the force simulation
+    // select the grandchild html:div element and update its html code
 
-          circles 
-          .attr('cx', d => d.x + d.width/2)
-          .attr('cy', d => d.y + d.height/2);
+    rect_groups.attr("transform", d => `translate(${d.x}, ${d.y})`); // this works on the 'g' element and all its children etc
+    rect_groups.selectAll("foreignObject")
+      .select("div") // this works, but "xhtml:div" doesn't - go figure
+      .html(d => `x: ${Math.round(d.x)}<br>y: ${Math.round(d.y)}`);
 
-    // for rect, select the grandchild html:div element and update its html code
+    circle_groups.attr("transform", d => `translate(${d.x+d.r}, ${d.y+d.r})`); // offset by radius, otherwise shapes don't collide properly
+    circle_groups.selectAll("foreignObject")
+      .select("div") // this works, but "xhtml:div" doesn't - go figure
+      .html(d => `x: ${Math.round(d.x)}<br>y: ${Math.round(d.y)}`);
 
-    rects.attr("transform", d => `translate(${d.x}, ${d.y})`); // this works on the 'g' element and all its children etc
-        rects.selectAll("foreignObject")
-          .select("div") // this works, but "xhtml:div" doesn't - go figure
-          .html(d => `x: ${Math.round(d.x)}<br>y: ${Math.round(d.y)}`);
-
-
-        }
-
-        // Custom 'collide' force implementation
-        function collide(alpha) {
+}
+//--------------------------------------------------------------------
+// Custom 'collide' force implementation
+function collide(alpha) {
             // full cartesian join filtered where m.area >= n.area and overlap > 0 (and only where the two node types 'must not overlap' )
             // heavier shapes should displace lighter shapes & not the other way. Maybe with zero recoil?
             // Problem: this force seems to lose strength faster than the others. How to compensate, so shapes don't gradually start overlapping?
@@ -218,6 +242,8 @@ rects
           ticked(); // help reduce some jitter when a shape bounces between 2 neighbours
         }
 
+//--------------------------------------------------------------------
+
 // what's the 'shortest way out'?
 
 function escape_vector( m, n ) {
@@ -232,7 +258,7 @@ function escape_vector( m, n ) {
   return Math.abs(x) < Math.abs(y) ? [-x,0] : [0,-y]
 
 }
-
+//--------------------------------------------------------------------
 </script>
 </body>
 </html>
