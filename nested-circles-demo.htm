@@ -1,0 +1,92 @@
+<html>
+<head>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+<script>
+//--------------------------------------------------------------------
+
+let margin = {
+  top: 100,
+  right: 100,
+  bottom: 100,
+  left: 100
+};
+
+let svg_width = 800,
+    svg_height = 600
+;
+
+let nodes = [
+    { id: 1, x:100, y:200, r:30 },
+    { id: 2, x:-150, y:250, r:20 },
+    { id: 3, x:300, y:-200, r:40 }
+];
+
+  //--------------------------------------------------------------------
+
+let svg = d3.select('body')
+    .append('svg')
+    .attr('height', svg_height)
+    .attr('width', svg_width)
+    .append('g') // this 'mother of all groups' will contain all composite 'g' nodes
+    .attr('transform', 'translate(' + svg_width / 2 + ',' + svg_height / 2 + ')'); // assume this applies to the g node, not the outer 
+
+console.clear();
+
+//--------------------------------------------------------------------
+top_group = svg.selectAll("g"); 
+
+circle_groups = top_group
+    .data(nodes) // for each datum in nodes...
+    .enter() // select the node datum (?)
+    .append('g') // add a 'g' child element, one per node, to encapsulate all its nested sub-elements (eg  circle + foreignObject)
+    ;
+
+circle_groups
+    .append('circle')
+      .attr('r', d => d.r)
+      .attr('fill', 'blue')
+      .attr('opacity', 0.6)
+      .attr('stroke', 'black')
+      .attr('stroke-width', 1)
+      ;
+
+      /*
+circle_groups
+  .append("foreignObject") // add a second child element per node-group. 
+  .attr("x", d=>-d.r)
+  .attr("y", d=>-d.r)
+  .attr("width", d=> d.width)
+  .attr("height", d=> d.height)
+  .append("xhtml:div") // add a grandchild DIV element inside the foreignObject - we need the strictness of XHTML when inside an SVG 
+    .style("font-size", "8px")
+    .style("justify-content", "center")
+    .style("display", "flex")
+    .style("height", "100%")
+    .style("width", "100%")
+    .style("align-items", "center")
+    .style("font-family", "Helvetica")
+    //.style("padding", "5px")
+*/
+//--------------------------------------------------------------------
+
+
+let simulationCircle = d3.forceSimulation(nodes)
+    .force("x", d3.forceX())
+    .force("y", d3.forceY())
+    .force('centre', d3.forceCenter()) 
+    .force("collide", d3.forceCollide() )
+    .on("tick", ticked)
+//         .tick(60) 
+          ;
+//--------------------------------------------------------------------
+function ticked() {
+    circle_groups.attr("transform", d => `translate(${d.x+d.r}, ${d.y+d.r})`);
+  
+}
+
+//--------------------------------------------------------------------
+</script>
+</body>
+</html>
