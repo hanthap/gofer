@@ -4,6 +4,7 @@
 </head>
 <body>
 <script>
+
 //--------------------------------------------------------------------
 
 console.clear();
@@ -20,6 +21,8 @@ let svg_width = 900,
     svg_height = 600
 ;
 
+//--------------------------------------------------------------------
+
 class MyNode {
     constructor( id, x, y, r, parent ) {
         this.id = id;
@@ -27,11 +30,10 @@ class MyNode {
         this.y = y;
         this.r = r;
         this.parent = parent;
-        this.fill_colour = 'red'
     }
 
     get FillColour() {
-        return this.fill_colour;
+        return 'red';
     }
 
     get Height() {
@@ -41,32 +43,85 @@ class MyNode {
     get Width() {
         return 3*this.r;
     }
-}
 
-
-class MyRect extends MyNode {
-    constructor( id, x, y, r, parent ) {
-        super( id, x, y, r, parent )
+    get ImageSource() {
+        return 'Tara photo.jpg';
     }
 
 }
 
+//----------------------------------------------------------------------------------------------
+
+class MyRect extends MyNode {
+
+    constructor( id, x, y, r, parent ) {
+        super( id, x, y, r, parent )
+    }
+
+    get FillColour() {
+        return 'green';
+    }
+
+
+
+}
+//----------------------------------------------------------------------------------------------
+
 let nodes = [
     new MyNode( 1, 100, 200, 30, 2 ),
-    new MyNode( 2, -150, 250, 20, null ),
-    new MyNode( 3, 300, 200, 40, 2 ),
+    new MyRect( 2, -150, 250, 20, null ),
+    new MyRect( 3, 300, 200, 40, 2 ),
     new MyRect( 4, 250, 150, 30 ),
     new MyNode( 5, 300, -200, 40, 4 )
 ];
 
-// pragma "extend the class" by adding custom methods directly to the D3 prototype
-d3.selection.prototype.AddChildRect = function() { 
+//----------------------------------------------------------------------------------------------
+
+// pragma "extend the class" simply by adding custom methods directly to the D3 prototype
+// points to a javascripty approach to OOP encapsulation etc.
+
+d3.selection.prototype.AddChildRects = function() { 
     this // initially a selection of 'g' elements
-    .append('rect') // creates a CHILD 'rect' for each selected 'g' element & returns the result AS A NEW SELECTION
+    .append('rect') // create a CHILD 'rect' for each selected 'g' element & return the result AS A NEW SELECTION
       .attr('width', d => d.Width ) // set attribute of each element in the fresh selection (= newly-added child rects)
       .attr('height', d => d.Height )
       .attr('fill', d => d.FillColour )
       .attr('opacity', 0.2)
+
+}
+
+d3.selection.prototype.AddChildCircles = function() { 
+    this
+    .append('circle')
+      .attr('r', d => d.r)
+      .attr('fill', d => d.FillColour)
+      .attr('opacity', 0.6)
+      .attr('stroke', 'black')
+      .attr('stroke-width', 1)
+      ;
+}
+
+d3.selection.prototype.AddHtmlDivs = function() { 
+
+    divs = this // expecting a selection of g nodes which happen to contain a visible shape (circle or rect)
+    .append("foreignObject") // add a (second) child element to each g node & return these, as a new selection
+        .attr("x", d=>-d.r) // pixel offset relative to the parent 'g' element
+        .attr("y", d=>-d.r)
+        .attr("width", d=> d.Width)
+        .attr("height", d=> d.Height)
+        .attr('opacity', 0.2) // important!
+        .append("xhtml:div") // add a (grandchild) DIV element inside the foreignObject (we need the strictness of XHTML when inside an SVG) 
+            .style("font-size", "8px")
+            .style("justify-content", "center")
+            .style("display", "flex")
+            .style("height", "100%")
+            .style("width", "100%")
+            .style("align-items", "center")
+            .style("font-family", "Helvetica")
+            //.style("padding", "5px")
+    ;
+
+    return divs; // a selection of DIV elements ready for freestyle HTML code
 }
 
   //--------------------------------------------------------------------
@@ -75,7 +130,7 @@ let svg = d3.select('body')
     .append('svg')
     .attr('height', svg_height)
     .attr('width', svg_width)
-    .append('g') // this 'mother of all groups' will contain all composite 'g' nodes
+    .append('g') // this 'mother of all groups' will later contain all composite 'g' nodes
     .attr('transform', 'translate(' + svg_width / 2 + ',' + svg_height / 2 + ')'); // assume this applies to the top g node, not the outer svg
     // result is an element object, NOT bound to a data node
 
@@ -88,24 +143,22 @@ top_group = svg.selectAll("g");  // returns a custom D3 Selection object with me
 // .nodes() will return a standard array
 
 top_folder_groups = top_group // requires a D3 Selection object as returned by selectAll(), supporting chainable API
-    .data( 
+    .data(  // create a selection with 3 sub-selections. One for update, one for _enter and one for _exit.
         nodes.filter(d=>d.parent == null), // an Array of qualifying data nodes, to be linked with the D3 Selection of DOM elements  
-        d=>d.id // (optional) explicit key function that uniquely identifies the data point. This prevents random change in bindings later.
+        d=>d.id // (optional) explicit key function to decide which elements are _enter, _exit 
         // D3 takes the returned ID value and stores it in the DOM element, as a custom data attr called 'data-id', useful for filtered selections later
         ) // default is to simply compare the 2 list counts and flag the last N data nodes as "unbound"
-    .enter() // creates special PLACEHOLDER elements just for the unbound data nodes (if any), pipes the result as a multi-Selection object
+    .enter() // creates special PLACEHOLDER elements just for the unbound data nodes in enter_[] (if any), returns the result as a Selection object
     // unbound nodes are detected using the key function, if provided
-    .append('g') // They're all special placeholder elements, so are CONVERTED to 'g' instead of creating a child
+    .append('g') // input selection is from _enter[] therefore special placeholder elements, so these are CONVERTED to 'g' instead of creating a child
         // returns a selection with all the newly converted elements
         .attr('data-myid', d=>d.id); // "data-" attributes are HTML's way to tag an element with arbitrary key-value pairs, without side effects
     // you can retrieve ALL custom data attributes of an HTML element via its "dataset" member. The "data-" prefix is already trimmed.
     // RESULT: top_folder_groups is a custom object with class members "_groups" and "_parents". Both are Arrays of Arrays.
     // member "_groups" is an array of 2x BOUND 'g' elements.   
     // BOUND means they each have a "__data__" member that references a particular data node (datum)
-    // the referenced datum stores all the properties we defined explicitly in "nodes" above PLUS many others managed by d3: vx, vy, index (& heaps of others)
-    // the datum may be an instance of a user-defined class, which means we can achieve OOP polymorphism and invoke overloaded methods via 'this'
-
-top_folder_groups.AddChildRect(); // invoke the encapsulated method we added to the standard D3 prototype
+    // the referenced datum object stores all the properties we defined explicitly in "nodes" above PLUS a few others managed by d3: vx, vy, index
+    // All the object's class methods - but no special D3 methods. We can achieve OOP polymorphism and invoke overloaded methods
 
 circle_groups = top_folder_groups
     .data(nodes.filter(d=>d.parent != null)) // for each leaf datum in nodes...
@@ -113,14 +166,24 @@ circle_groups = top_folder_groups
     .append('g') // add a 'g' child element, one per member node, to encapsulate all its nested sub-elements (eg  circle + foreignObject or maybe even another container g node)
     ;
 
-circle_groups
-    .append('circle')
-      .attr('r', d => d.r)
-      .attr('fill', 'blue')
-      .attr('opacity', 0.6)
-      .attr('stroke', 'black')
-      .attr('stroke-width', 1)
-      ;
+// invoke the encapsulated methods that we added to the standard D3 prototype
+
+top_folder_groups.AddChildRects(); 
+circle_groups.AddChildCircles(); 
+divs = top_folder_groups.AddHtmlDivs();
+
+divs.html("<table><tr><td><img src='Tara photo.jpg' alt='a' width=40 height=50></img></td><tr><td>Tara</td></tr></table>") ; 
+    // TO DO: how to make the <img> appear below rather than to the right
+/*
+    div.append("img") // populate the DIV with 
+            .attr("src", d => d.ImageSource)
+            .attr("width", 40)
+            .attr("height", 50)
+            .attr("alt" , "hello" )
+            .attr('opacity', 0.2);
+*/
+
+
 
       /*
 circle_groups
@@ -139,6 +202,14 @@ circle_groups
     .style("font-family", "Helvetica")
     //.style("padding", "5px")
 */
+
+t = top_folder_groups // requires a D3 Selection object as returned by selectAll(), supporting chainable API
+    .data(  // create a selection with 3 sub-selections. One for update, one for enter and one for exit.
+        nodes, // an Array of qualifying data nodes, to be linked with the D3 Selection of DOM elements  
+        d=>d.id // (optional) explicit key function that uniquely identifies the data point. This prevents random change in bindings later.
+        // D3 takes the returned ID value and stores it in the DOM element, as a custom data attr called 'data-id', useful for filtered selections later
+        )
+;
 
 //--------------------------------------------------------------------
 
