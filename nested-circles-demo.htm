@@ -183,9 +183,10 @@ top_folder_groups = top_group // requires a D3 Selection object as returned by s
     .data(   // partition the selection into 3 subsets (update, enter, exit) based on whether they are already bound to any of these supplied data nodes 
         nodes.filter(d=>d.parent == null), // an Array of qualifying data nodes, to be linked with the D3 Selection of DOM elements  
         d=>d.id // (optional) explicit key function to decide which subset each selected element belongs to (enter, exit or update)
+        // Fun fact: inside the key function, "this" = the current DOM element. [First arg] is the datum, [second arg] is the index i
         // D3 takes the returned ID value and stores it in the DOM element, as a custom data attr called 'data-id', useful for filtered selections later
         ) // if no key function the default logic is to simply compare the 2 list counts and put the surplus (last N) data nodes into the "enter" subset
-    .enter() // switch to the "enter" subset and create special PLACEHOLDER elements. Returns the list of new placeholders, as a selection
+    .enter() // switch to the "enter" subset (data not already bound to a selected element) and create special PLACEHOLDER elements. Returns the list of new placeholders, as a selection
     .append('g') // the input selection is from _enter[] therefore special placeholder elements, so these are CONVERTED to 'g' instead of creating a child
         // returns a selection with all the newly converted elements
         .attr('data-myid', d=>d.id); // "data-" attributes are HTML's way to tag an element with arbitrary key-value pairs, without side effects
@@ -244,6 +245,26 @@ function ticked() {
     circle_groups.attr("transform", d => d.Translate);
     top_folder_groups.attr("transform", d => d.Translate);
 }
+
+
+const circles = d3.selectAll("circle"); 
+
+bb = GetCombinedBBox( circles );
+
+function GetCombinedBBox( sel ) {
+    const boundingBoxes = sel.nodes().map(node => node.getBBox());
+
+    const combinedBBox = boundingBoxes.reduce((acc, bbox) => ({
+        x: Math.min(acc.x, bbox.x),
+        y: Math.min(acc.y, bbox.y),
+        width: Math.max(acc.x + acc.width, bbox.x + bbox.width) - Math.min(acc.x, bbox.x),
+        height: Math.max(acc.y + acc.height, bbox.y + bbox.height) - Math.min(acc.y, bbox.y)
+    }));
+
+    return combinedBBox;
+
+}
+
 
 //--------------------------------------------------------------------
 </script>
