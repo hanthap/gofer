@@ -1,0 +1,277 @@
+<html>
+<head>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+</head>
+<body>
+<script>
+
+//--------------------------------------------------------------------
+
+function segInt(a1, a2, b1, b2) {
+    // Ensure a1 <= a2 and b1 <= b2
+    var leftBound = Math.max(a1, b1),
+      rightBound = Math.min(a2, b2);
+  // console.log([leftBound, rightBound]);
+    // Check if there's an actual intersection
+    return (leftBound <= rightBound) ? [leftBound, rightBound, (rightBound-leftBound) ] : [null,null,0];
+}
+//--------------------------------------------------------------------
+
+let margin = {
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0
+};
+
+let svg_width = 1200,
+    svg_height = 600,
+  padding = 0; // separation 
+
+let nNodes = 36, // total number of nodes
+  nClusters = 6, // number of distinct colours
+  z = d3.scaleOrdinal(d3.schemeCategory10),
+  maxRadius = 65
+  ;
+//--------------------------------------------------------------------
+
+  class MyNode {
+    constructor(r) { 
+        this._r  = r;
+    }
+      _r;
+    
+    get r() { return this._r; }
+    set r(_) { this._r = _; }
+
+    static fg(d) { return z(d.cluster); }
+
+    static add(d) {
+        console.log(d)
+    return d
+    }
+
+  }
+
+  //--------------------------------------------------------------------
+
+        let svg = d3.select('body')
+          .append('svg')
+          .attr('height', svg_height)
+          .attr('width', svg_width)
+          .append('g') // add a mother of all groups to contain all the graphical elements
+          .attr('transform', 'translate(' + svg_width / 2 + ',' + svg_height / 2 + ')');
+        
+          // generate a random dataset of nodes
+        let nodes = d3.range(nNodes).map(() => {
+          let i = Math.floor(Math.random() * nClusters), // randomly assign node to a cluster
+            radius = Math.random() * maxRadius,
+            d = {
+              cluster: i,
+              x : Math.random() * svg_width,
+              y : Math.random() * svg_height,
+              r: radius,
+              height: radius * ( 1+Math.random() ),
+              width: radius * ( 1+Math.random() ),
+              cx : 0,
+              cy : 0,
+              type: i % 2 ? 'rect' : 'circle',
+              area: 0 // "inertial mass" 
+            };
+            if ( d.type == 'circle' ) { 
+              d.r = Math.min(d.height,d.width)/2;
+              d.height = d.width = d.r * 2 ;
+              d.cx = d.x + d.r;
+              d.cy = d.y + d.r;
+              d.area = Math.PI * d.r * d.r;
+              }
+            else {
+              d.area = d.height * d.width;
+            }
+              ;
+
+
+          return d;
+        });
+        console.clear();
+      //  console.log(nodes);
+
+//--------------------------------------------------------------------
+top_group = svg.selectAll("g"); // mother of all groups
+
+rect_groups = top_group
+    .data(nodes.filter(d=>d.type=='rect'))
+    .enter()
+    .append('g') // add a 'g' element, one per node, to contain all of its display elements eg  rect + foreignObject
+    ;
+
+circle_groups = top_group
+    .data(nodes.filter(d=>d.type=='circle'))
+    .enter()
+    .append('g') // add a 'g' element, one per node, to contain all of its display elements eg  circle + foreignObject
+    ;
+
+//--------------------------------------------------------------------
+// add the shape, as a child of each 'g' element
+
+rect_groups 
+      .append('rect') // first child
+        .attr('height', d => d.height)
+        .attr('width', d => d.width)
+        .attr('fill', MyNode.fg )
+        .attr('opacity', 0.6)
+        .attr('stroke', 'black')
+        .attr('stroke-width', 1)
+        ;
+  
+// for each 'g' element in rect_groups array... append a 2nd child = 'foreignObject' element PLUS a grandchild 'xhtml:div' element
+
+rect_groups
+  .append("foreignObject") // add a second child element per node-group. 
+    .attr("width", d=> d.width)
+    .attr("height", d=> d.height)
+  .append("xhtml:div") // add a grandchild DIV element inside the foreignObject - we need the strictness of XHTML when inside an SVG 
+    .style("font-size", "8px")
+    .style("text-align", "left")
+    .style("font-family", "Helvetica")
+    .style("padding", "5px")
+      ;
+//--------------------------------------------------------------------
+// now do the same for circle nodes
+
+circle_groups
+    .append('circle')
+      .attr('r', d => d.r)
+      .attr('fill', MyNode.fg )
+      .attr('opacity', 0.6)
+      .attr('stroke', 'black')
+      .attr('stroke-width', 1)
+      ;
+ 
+circle_groups
+  .append("foreignObject") // add a second child element per node-group. 
+  .attr("x", d=>-d.r)
+  .attr("y", d=>-d.r)
+  .attr("width", d=> d.width)
+  .attr("height", d=> d.height)
+  .append("xhtml:div") // add a grandchild DIV element inside the foreignObject - we need the strictness of XHTML when inside an SVG 
+    .style("font-size", "8px")
+    .style("justify-content", "center")
+    .style("display", "flex")
+    .style("height", "100%")
+    .style("width", "100%")
+    .style("align-items", "center")
+    .style("font-family", "Helvetica")
+    //.style("padding", "5px")
+
+//--------------------------------------------------------------------
+    // We can have multiple concurrent force simulations, with independent parameters
+    // this seems to reduce the amount of jitter
+
+        let simulationRect = d3.forceSimulation(nodes.filter(d=>d.type=='rect'))
+          .force("x", d3.forceX().strength( d => d.area / 100000 )) // heavier shapes fall into to centre
+          .force("y", d3.forceY().strength( d => d.area / 100000 ))
+          .force('centre', d3.forceCenter()) // overall centre 
+          .force("collide", collide) // avoid overlapping 
+          .on("tick", ticked)
+          .tick(60) // fast forward to reduce visual jitter
+          ;
+        
+          let simulationCircle = d3.forceSimulation(nodes.filter(d=>d.type=='circle'))
+          .force("x", d3.forceX().strength( d => d.area / 100000 ))
+          .force("y", d3.forceY().strength( d => d.area / 100000 ))
+          .force('centre', d3.forceCenter()) 
+          .force("collide", collide)
+          .on("tick", ticked)
+         .tick(60) 
+          ;
+        // adding this extra collide sim helps reduce overlap and jitter even more
+          let simulationCollide = d3.forceSimulation(nodes)
+          .force("collide", collide)
+         // .alphaDecay(0.2)
+          .on("tick", ticked)
+         .tick(60) 
+//--------------------------------------------------------------------
+function ticked() {
+// set the DOM element's position using its new coordinates, as last updated in datum by the force simulations
+
+    // select the grandchild element <xhtml:div> and update its html code
+
+    rect_groups.attr("transform", d => `translate(${d.x}, ${d.y})`); // this moves the 'g' element and all its children etc
+    rect_groups.selectAll("foreignObject")
+      .select("div") // this works, but "xhtml:div" doesn't - go figure
+      .html(d => `x: ${Math.round(d.x)}<br>y: ${Math.round(d.y)}`);
+
+    circle_groups.attr("transform", d => `translate(${d.x+d.r}, ${d.y+d.r})`); // offset by radius, otherwise shapes don't collide properly
+    circle_groups.selectAll("foreignObject")
+      .select("div") 
+      .html(d => `cx: ${Math.round(d.x+d.r)}<br>cy: ${Math.round(d.y+d.r)}`);
+
+}
+//--------------------------------------------------------------------
+// Custom 'collide' force implementation
+function collide(alpha) {
+            // full cartesian join filtered where m.area >= n.area and overlap > 0 (and only where the two node types 'must not overlap' )
+            // heavier shapes should displace lighter shapes & not the other way. Maybe with zero recoil?
+            // Problem: this force seems to lose strength faster than the others. How to compensate, so shapes don't gradually start overlapping?
+            nodes.forEach( n => { // outer loop
+            var 
+              nx1 = n.x, // left 
+              nx2 = n.x + n.width, // right
+              ny1 = n.y, // top
+              ny2 = n.y + n.height; // bottom
+
+            nodes.forEach( m => { // inner loop
+
+              if ( m // non-empty 
+                && (m !== n) // no need to compare with self
+                && ( m.area >= n.area )  // avoids (most) double-processing
+                  )
+                { 
+                  try {
+                    var
+                        x_int = segInt( m.x, m.x+m.width, nx1, nx2), // horizontal intersection
+                        y_int = segInt( m.y, m.y+m.height, ny1, ny2), // vertical intersection
+                        [x,y] = [x_int[2], y_int[2]],
+                        overlap_area = x * y ; 
+                  } catch (e) { 
+                      console.log(e);
+                      overlap_area = 0 
+                      }
+
+                if (overlap_area) { // the 2 rects actually do overlap
+                    nudge_factor = 20 * alpha / Math.max( m.area + n.area ) ; // for smooth animation
+                   [x,y] = escape_vector( m, n ); // "shortest way out" 
+                    n.x += padding + x * nudge_factor * m.area ; // nudge n away from m
+                    m.x -= padding + x * nudge_factor * n.area; // x recoil 
+                    n.y += padding + y * nudge_factor * m.area; // nudge n away from m
+                    m.y -= padding + y * nudge_factor * n.area; // y recoil 
+
+                  }
+              }
+            });
+          });
+          ticked(); // help reduce some jitter when a shape bounces between 2 neighbours
+        }
+
+//--------------------------------------------------------------------
+
+// what's the 'shortest way out'?
+
+function escape_vector( m, n ) {
+  
+  // Which list item has the smallest absolute value?
+  x = [n.x-(m.x+m.width), (n.x+n.width)-m.x ] ;
+  x = x.reduce((min, num) => Math.abs(num) < Math.abs(min) ? num : min );
+
+  y = [n.y-(m.y+m.height), (n.y+n.height)-m.y ] ;
+  y = y.reduce((min, num) => Math.abs(num) < Math.abs(min) ? num : min );
+
+  return Math.abs(x) < Math.abs(y) ? [-x,0] : [0,-y]
+
+}
+//--------------------------------------------------------------------
+</script>
+</body>
+</html>

@@ -1,0 +1,272 @@
+<html>
+<head>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+<script>
+
+//--------------------------------------------------------------------
+
+console.clear();
+
+
+let margin = {
+  top: 100,
+  right: 100,
+  bottom: 100,
+  left: 100
+};
+
+let svg_width = 900,
+    svg_height = 600
+;
+
+//--------------------------------------------------------------------
+
+class MyNode {
+    constructor( id, x, y, r, parent, src ) {
+        this.id = id;
+        this.x = x;
+        this.y = y;
+        this.r = r;
+        this.parent = parent;
+        this.src = src;
+    }
+
+    get FillColour() {
+        return 'red';
+    }
+
+    get Height() {
+        return 2*this.r;
+    }
+
+    get Width() {
+        return 3*this.r;
+    }
+
+    get ImageSource() {
+        return this.src ;
+    }
+    
+    get ImageAlt() {
+        return this.src ;
+    }
+
+    get Opacity() {
+        return Math.random();
+    }
+
+    get Translate() { // applied to the g element
+        return `translate(${this.x}, ${this.y})`;
+    }
+
+}
+
+//----------------------------------------------------------------------------------------------
+
+class MyRect extends MyNode {
+
+    constructor( id, x, y, r, parent ) {
+        super( id, x, y, r, parent )
+    }
+
+    get FillColour() { // overloaded method
+        return 'green';
+    }
+
+}
+//----------------------------------------------------------------------------------------------
+
+let nodes = [
+    new MyNode( 1, 100, 200, 30, 2, 'Salma BEGUM photo.jpg' ),
+    new MyRect( 2, -150, 250, 20, null, 'Salma BEGUM photo.jpg' ),
+    new MyRect( 3, 300, 200, 40, 2, 'Salma BEGUM photo.jpg' ),
+    new MyNode( 4, 250, 150, 25, 2, 'Tara photo.jpg' ),
+    new MyRect( 5, 300, -200, 60, 4, 'Salma BEGUM photo.jpg' )
+];
+
+//----------------------------------------------------------------------------------------------
+
+// pragma "extend the class" simply by adding custom methods directly to the D3 prototype
+// points to a javascripty approach to OOP encapsulation etc.
+
+d3.selection.prototype.AddChildRects = function() { 
+    this // expecting a selection of 'g' elements
+    .append('rect') // create a CHILD 'rect' for each selected 'g' element, & return the result AS A NEW SELECTION
+      .attr('width', d => d.Width ) // set attribute of each element in the fresh selection (= newly-added child rects)
+      .attr('height', d => d.Height )
+      .attr('fill', d => d.FillColour )
+      .attr('opacity', d => d.Opacity )
+
+}
+/*
+d3.selection.prototype.AddBoundingBox = function() { 
+//    this.each(d=>console.log(d)) // gets the element's currently bound datum object and passes it to the accessor function
+ //       this.nodes().each(d=>console.log(d))
+ this // expecting a selection of 'g' elements
+    .nodes() // convert the selection to an ordinary Array
+        .forEach(node => { 
+//            console.log(node.__data__); 
+            const bbox = node.getBBox(); // Get bounding box
+
+        .append("rect")
+            .attr("x", bbox.x)
+            .attr("y", bbox.y)
+            .attr("width", bbox.width)
+            .attr("height", bbox.height)
+            .attr("fill", "none") // No fill
+            .attr("stroke", "red") // Red border
+            .attr("stroke-width", 2);
+
+            
+
+        
+        }); // each DOM element
+
+/*
+*/
+
+d3.selection.prototype.AddChildCircles = function() { 
+    this // expecting a selection of 'g' elements
+    .append('circle')
+      .attr('r', d => d.r)
+      .attr('fill', d => d.FillColour)
+      .attr('opacity', d => d.Opacity )
+      .attr('stroke', 'black')
+      .attr('stroke-width', 1)
+      ;
+}
+
+d3.selection.prototype.AddHtmlDivs = function() { 
+    divs = this // expecting a selection of 'g' elements
+    .append("foreignObject") // add a (second) child element to each g node & return these, as a new selection
+        .attr("x", d=>-d.r) // pixel offset relative to the parent 'g' element
+        .attr("y", d=>-d.r)
+        .attr("width", d=> d.Width)
+        .attr("height", d=> d.Height)
+        .attr('opacity', d=> d.Opacity) // important for foreignObject!
+        // the foreignObject *could* be MathML, Canvas or XHTML. We just want XHTML.
+        .append("xhtml:div") // we need the strictness of XHTML when inside an SVG
+            .style("font-size", "8px")
+            .style("justify-content", "center")
+            .style("display", "flex")
+            .style("height", "100%")
+            .style("width", "100%")
+            .style("align-items", "center")
+            .style("font-family", "Helvetica")
+            //.style("padding", "5px")
+    ;
+
+    return divs; // a selection of DIV elements, ready for freestyle HTML code
+}
+
+
+  //--------------------------------------------------------------------
+
+let svg = d3.select('body')
+    .append('svg')
+    .attr('height', svg_height)
+    .attr('width', svg_width)
+    .append('g') // this 'mother of all groups' will later contain all composite 'g' elements
+    .attr('transform', 'translate(' + svg_width / 2 + ',' + svg_height / 2 + ')'); // applies to the outer g element, not its parent svg
+    // result is an element object, NOT bound to a data node (we didn't invoke data())
+
+//--------------------------------------------------------------------
+top_group = svg.selectAll("g");  // returns a D3 Selection object with members _groups and _parents. 
+// it's an instance of the Selection class. NOT a built-in Javascript iterator
+// behaves like an array but also has extra methods. It's a chainable API (returns 'this') meaning you can apply multiple operations in sequence eg .attr(), .style(), 
+// supports iteration with .each() or .nodes() 
+// .nodes() will return a standard array
+
+top_folder_groups = top_group // requires a D3 Selection object as returned by selectAll(), supporting chainable API
+    .data(   // partition the selection into 3 subsets (update, enter, exit) based on whether they are already bound to any of these supplied data nodes 
+        nodes.filter(d=>d.parent == null), // an Array of qualifying data nodes, to be linked with the D3 Selection of DOM elements  
+        d=>d.id // (optional) explicit key function to decide which subset each selected element belongs to (enter, exit or update)
+        // Fun fact: inside the key function, "this" = the current DOM element. [First arg] is the datum, [second arg] is the index i
+        // D3 takes the returned ID value and stores it in the DOM element, as a custom data attr called 'data-id', useful for filtered selections later
+        ) // if no key function the default logic is to simply compare the 2 list counts and put the surplus (last N) data nodes into the "enter" subset
+    .enter() // switch to the "enter" subset (data not already bound to a selected element) and create special PLACEHOLDER elements. Returns the list of new placeholders, as a selection
+    .append('g') // the input selection is from _enter[] therefore special placeholder elements, so these are CONVERTED to 'g' instead of creating a child
+        // returns a selection with all the newly converted elements
+        .attr('data-myid', d=>d.id); // "data-" attributes are HTML's way to tag an element with arbitrary key-value pairs, without side effects
+    // you can retrieve ALL custom data attributes of an HTML element via its "dataset" member. The "data-" prefix is already trimmed.
+    // RESULT: top_folder_groups is a selection of g elements ready to add child shapes
+
+circle_groups = top_folder_groups
+    .data(nodes.filter(d=>d.parent != null))  // partition the selection into 3 subsets (update, enter, exit) based on whether they are already bound to any of these supplied data nodes 
+    .enter() // switch to the _enter[] subset and create placeholder elements
+    .append('g') // convert each placeholder to a 'g' element, ready to append shapes
+    ;
+
+// populate the g elements with shapes & images, by invoking the encapsulated methods that we added to the standard D3 prototype
+
+top_folder_groups.AddChildRects(); 
+circle_groups.AddChildCircles(); 
+top_folder_groups.AddHtmlDivs();
+circle_groups.AddHtmlDivs(); 
+// circle_groups.AddBoundingBox();
+
+divs = d3.selectAll('div');
+
+t = divs.append("table")
+    .style("font-size", "8px")
+    .style("justify-content", "center");
+
+    tr = t.append("tr")
+    .append("td")
+    .append("img")
+        .attr("src", d => d.ImageSource)
+        .attr("alt", d => d.ImageAlt) // mandatory
+        .attr("width", 40)
+        .attr("height", 50)
+    ;
+
+    tr = t.append("tr")
+    .append("td")
+        .text(d => d.ImageAlt);
+
+
+//--------------------------------------------------------------------
+
+let simulationCircle = d3.forceSimulation(nodes)
+    .force("x", d3.forceX())
+    .force("y", d3.forceY())
+    .force('centre', d3.forceCenter()) 
+    .force("collide", d3.forceCollide() )
+    .on("tick", ticked)
+//         .tick(60) 
+          ;
+
+//--------------------------------------------------------------------
+
+function ticked() {
+//    d3.selectAll('g').attr("transform", MyNode.Translate);
+    circle_groups.attr("transform", d => d.Translate);
+    top_folder_groups.attr("transform", d => d.Translate);
+}
+
+
+const circles = d3.selectAll("circle"); 
+
+bb = GetCombinedBBox( circles );
+
+function GetCombinedBBox( sel ) {
+    const boundingBoxes = sel.nodes().map(node => node.getBBox());
+
+    const combinedBBox = boundingBoxes.reduce((acc, bbox) => ({
+        x: Math.min(acc.x, bbox.x),
+        y: Math.min(acc.y, bbox.y),
+        width: Math.max(acc.x + acc.width, bbox.x + bbox.width) - Math.min(acc.x, bbox.x),
+        height: Math.max(acc.y + acc.height, bbox.y + bbox.height) - Math.min(acc.y, bbox.y)
+    }));
+
+    return combinedBBox;
+
+}
+
+
+//--------------------------------------------------------------------
+</script>
+</body>
+</html>
