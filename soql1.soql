@@ -1,0 +1,1 @@
+SELECT QualifiedApiName FROM EntityDefinition WHERE IsCustomizable = true AND IsCustomSetting = false
